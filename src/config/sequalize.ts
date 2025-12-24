@@ -8,6 +8,9 @@ const sequelize = new Sequelize({
     database: config.postgres.name,
     username: config.postgres.user,
     password: config.postgres.password,
+    logging: (msg) => {
+        if (msg.includes('ERROR')) console.log(msg);
+    },
 });
 
 export default sequelize;
