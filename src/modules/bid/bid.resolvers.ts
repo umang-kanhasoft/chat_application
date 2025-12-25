@@ -6,12 +6,25 @@ import Skill from '../../models/Skill';
 import User, { ROLES } from '../../models/User';
 import UserSkill from '../../models/UserSkill';
 
+interface BidArgs {
+    id: string;
+}
+
+interface CreateBidArgs {
+    data: CreateBidInput;
+}
+
+interface UpdateBidArgs {
+    id: string;
+    data: UpdateBidInput;
+}
+
 export default {
     Query: {
         bids: async () => {
             return await Bid.findAll();
         },
-        bid: async (_: any, { id }: { id: string }) => {
+        bid: async (_: unknown, { id }: BidArgs) => {
             return await Bid.findByPk(id, {
                 include: [
                     {
@@ -52,7 +65,7 @@ export default {
     },
 
     Mutation: {
-        createBid: async (_: any, { data }: { data: CreateBidInput }) => {
+        createBid: async (_: unknown, { data }: CreateBidArgs) => {
             const user = await User.findByPk(data.user_id);
             if (!user || ![ROLES.FREELANCER].includes(user.role)) {
                 throw new Error('User not found');
@@ -63,14 +76,18 @@ export default {
             }
             return await Bid.create(data);
         },
-        updateBid: async (_: any, { id, data }: { id: string; data: UpdateBidInput }) => {
-            const user = await User.findByPk(data.user_id);
-            if (!user || ![ROLES.FREELANCER].includes(user.role)) {
-                throw new Error('User not found');
+        updateBid: async (_: unknown, { id, data }: UpdateBidArgs) => {
+            if (data.user_id) {
+                const user = await User.findByPk(data.user_id);
+                if (!user || ![ROLES.FREELANCER].includes(user.role)) {
+                    throw new Error('User not found');
+                }
             }
-            const project = await Project.findByPk(data.project_id);
-            if (!project) {
-                throw new Error('Project not found');
+            if (data.project_id) {
+                const project = await Project.findByPk(data.project_id);
+                if (!project) {
+                    throw new Error('Project not found');
+                }
             }
             const bid = await Bid.findByPk(id);
             if (!bid) {

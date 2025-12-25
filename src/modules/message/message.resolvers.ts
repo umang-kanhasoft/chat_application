@@ -4,12 +4,25 @@ import Message from '../../models/Message';
 import Project from '../../models/Project';
 import User from '../../models/User';
 
+interface MessageArgs {
+    id: string;
+}
+
+interface CreateMessageArgs {
+    data: CreateMessageInput;
+}
+
+interface UpdateMessageArgs {
+    id: string;
+    data: UpdateMessageInput;
+}
+
 export default {
     Query: {
         messages: async () => {
             return await Message.findAll();
         },
-        message: async (_: any, { id }: { id: string }) => {
+        message: async (_: unknown, { id }: MessageArgs) => {
             const data = await Message.findByPk(id, {
                 include: [
                     {
@@ -31,10 +44,10 @@ export default {
     },
 
     Mutation: {
-        createMessage: async (_: any, { data }: { data: CreateMessageInput }) => {
+        createMessage: async (_: unknown, { data }: CreateMessageArgs) => {
             return await Message.create(data);
         },
-        updateMessage: async (_: any, { id, data }: { id: string; data: UpdateMessageInput }) => {
+        updateMessage: async (_: unknown, { id, data }: UpdateMessageArgs) => {
             const user = await Message.findByPk(id);
             if (!user) {
                 throw new GraphQLError('Message not found', { extensions: { code: 'NOT_FOUND' } });

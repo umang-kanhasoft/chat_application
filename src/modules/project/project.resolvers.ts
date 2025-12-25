@@ -6,12 +6,25 @@ import Skill from '../../models/Skill';
 import User, { ROLES } from '../../models/User';
 import UserSkill from '../../models/UserSkill';
 
+interface ProjectArgs {
+    id: string;
+}
+
+interface CreateProjectArgs {
+    data: CreateProjectInput;
+}
+
+interface UpdateProjectArgs {
+    id: string;
+    data: UpdateProjectInput;
+}
+
 export default {
     Query: {
         projects: async () => {
             return await Project.findAll();
         },
-        project: async (_: any, { id }: { id: string }) => {
+        project: async (_: unknown, { id }: ProjectArgs) => {
             return await Project.findByPk(id, {
                 include: [
                     {
@@ -52,17 +65,19 @@ export default {
     },
 
     Mutation: {
-        createProject: async (_: any, { data }: { data: CreateProjectInput }) => {
+        createProject: async (_: unknown, { data }: CreateProjectArgs) => {
             const client = await User.findByPk(data.client_id);
             if (!client || ![ROLES.CLIENT, ROLES.BOTH].includes(client.role)) {
                 throw new Error('Client not found');
             }
             return await Project.create(data);
         },
-        updateProject: async (_: any, { id, data }: { id: string; data: UpdateProjectInput }) => {
-            const client = await User.findByPk(data.client_id);
-            if (!client || client.role !== ROLES.CLIENT) {
-                throw new Error('Client not found');
+        updateProject: async (_: unknown, { id, data }: UpdateProjectArgs) => {
+            if (data.client_id) {
+                const client = await User.findByPk(data.client_id);
+                if (!client || client.role !== ROLES.CLIENT) {
+                    throw new Error('Client not found');
+                }
             }
             const project = await Project.findByPk(id);
             if (!project) {

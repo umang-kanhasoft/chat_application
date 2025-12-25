@@ -1,12 +1,21 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/sequalize';
 
+export enum MESSAGE_STATUS {
+    SENT = 'SENT',
+    DELIVERED = 'DELIVERED',
+    READ = 'READ',
+}
+
 export interface MessageAttributes {
     id?: string;
     content: string;
     sender_id: string;
     receiver_id: string;
     project_id: string;
+    status: MESSAGE_STATUS;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 class Message extends Model<MessageAttributes> implements MessageAttributes {
@@ -15,6 +24,9 @@ class Message extends Model<MessageAttributes> implements MessageAttributes {
     declare sender_id: string;
     declare receiver_id: string;
     declare project_id: string;
+    declare status: MESSAGE_STATUS;
+    declare createdAt: string;
+    declare updatedAt: string;
 }
 
 Message.init(
@@ -39,6 +51,11 @@ Message.init(
         project_id: {
             type: DataTypes.UUID,
             allowNull: false,
+        },
+        status: {
+            type: DataTypes.ENUM(...Object.values(MESSAGE_STATUS)),
+            allowNull: false,
+            defaultValue: MESSAGE_STATUS.SENT,
         },
     },
     {

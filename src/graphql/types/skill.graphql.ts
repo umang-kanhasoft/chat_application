@@ -19,5 +19,4 @@ export const typeDefs = `#graphql
         createSkill(data: SkillInput!): Skill!
         updateSkill(id: ID!, data: SkillInput!): Skill!
     }
-
 `;

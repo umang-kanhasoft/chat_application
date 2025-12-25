@@ -12,6 +12,8 @@ export interface UserAttributes {
     name: string;
     email: string;
     role: ROLES;
+    isOnline?: boolean;
+    lastSeen?: Date;
 }
 
 class User extends Model<UserAttributes> implements UserAttributes {
@@ -19,6 +21,8 @@ class User extends Model<UserAttributes> implements UserAttributes {
     declare name: string;
     declare email: string;
     declare role: ROLES;
+    declare isOnline: boolean;
+    declare lastSeen: Date;
 }
 
 User.init(
@@ -41,6 +45,15 @@ User.init(
             type: DataTypes.ENUM(...Object.values(ROLES)),
             allowNull: false,
             defaultValue: ROLES.FREELANCER,
+        },
+        isOnline: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+        },
+        lastSeen: {
+            type: DataTypes.DATE,
+            allowNull: true,
         },
     },
     {

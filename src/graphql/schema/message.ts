@@ -1,11 +1,13 @@
 import { Static, Type } from '@sinclair/typebox';
+import { MESSAGE_STATUS } from '../../models/Message';
 
 export const MessageSchema = Type.Object({
     id: Type.String({ format: 'uuid' }),
-    content: Type.String({ minLength: 2, maxLength: 50 }),
+    content: Type.String({ minLength: 1 }),
     sender_id: Type.String({ format: 'uuid' }),
     receiver_id: Type.String({ format: 'uuid' }),
     project_id: Type.String({ format: 'uuid' }),
+    status: Type.Enum(MESSAGE_STATUS),
 });
 
 export const CreateMessageSchema = Type.Pick(MessageSchema, [
@@ -13,6 +15,7 @@ export const CreateMessageSchema = Type.Pick(MessageSchema, [
     'sender_id',
     'receiver_id',
     'project_id',
+    'status',
 ]);
 export const UpdateMessageSchema = Type.Partial(CreateMessageSchema);
 

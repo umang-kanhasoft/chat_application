@@ -3,9 +3,7 @@ export const typeDefs = `#graphql
         id: ID!
         amount: Int!
         status: String!
-        # user_id: ID!
         user: User!
-        # project_id: ID!
         project: Project!
         createdAt: String!
         updatedAt: String!
@@ -27,5 +25,4 @@ export const typeDefs = `#graphql
         createBid(data: BidInput!): Bid!
         updateBid(id: ID!, data: BidInput!): Bid!
     }
-
 `;

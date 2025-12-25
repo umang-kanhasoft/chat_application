@@ -6,6 +6,15 @@ import ProjectSkill from '../../models/ProjectSkill';
 import Skill from '../../models/Skill';
 import Project from '../../models/Project';
 
+interface CreateProjectSkillArgs {
+    data: CreateProjectSkillInput;
+}
+
+interface UpdateProjectSkillArgs {
+    id: string;
+    data: UpdateProjectSkillInput;
+}
+
 export default {
     Query: {
         projectSkill: async () => {
@@ -14,7 +23,7 @@ export default {
     },
 
     Mutation: {
-        createProjectSkill: async (_: any, { data }: { data: CreateProjectSkillInput }) => {
+        createProjectSkill: async (_: unknown, { data }: CreateProjectSkillArgs) => {
             const skill = await Skill.findByPk(data.skill_id);
             if (!skill) {
                 throw new Error('Skill not found');
@@ -25,10 +34,7 @@ export default {
             }
             return await ProjectSkill.create(data);
         },
-        updateProjectSkill: async (
-            _: any,
-            { id, data }: { id: string; data: UpdateProjectSkillInput },
-        ) => {
+        updateProjectSkill: async (_: unknown, { id, data }: UpdateProjectSkillArgs) => {
             const projectSkill = await ProjectSkill.findByPk(id);
             if (!projectSkill) {
                 throw new Error('Project skill not found');

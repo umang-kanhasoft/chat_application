@@ -32,6 +32,13 @@ const config = {
         port: Number(process.env.REDIS_PORT),
         redisURL: process.env.REDIS_URL!,
     },
+    socket: {
+        heartbeatInterval: Number(process.env.WS_HEARTBEAT_INTERVAL),
+        cors: {
+            origin: process.env.CLIENT_URL!,
+            credentials: true,
+        },
+    },
 };
 
 export { config };
