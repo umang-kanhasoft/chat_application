@@ -37,7 +37,7 @@ Message.init(
             primaryKey: true,
         },
         content: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT, // Changed from STRING to TEXT for larger content
             allowNull: false,
         },
         sender_id: {

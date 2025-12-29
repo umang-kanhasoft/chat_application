@@ -1,9 +1,8 @@
-import { WebSocket } from 'ws';
+import { Socket } from 'socket.io';
 
-export interface AuthenticatedSocket extends WebSocket {
+export interface AuthenticatedSocket extends Socket {
     userId?: string;
     userName?: string;
-    isAlive?: boolean;
 }
 
 export enum SocketEventType {
@@ -18,6 +17,7 @@ export enum SocketEventType {
     MESSAGE_HISTORY = 'message_history',
     MESSAGE_READ = 'message_read',
     MARK_AS_READ = 'mark_as_read',
+    MESSAGE_DELIVERED = 'message_delivered',
 
     // Project Users
     GET_PROJECT_USERS = 'get_project_users',
@@ -30,12 +30,28 @@ export enum SocketEventType {
     USER_OFFLINE = 'user_offline',
     ONLINE_USERS = 'online_users',
 
+    // Typing
+    TYPING_START = 'typing_start',
+    TYPING_STOP = 'typing_stop',
+
+    // Heartbeat
+    HEARTBEAT = 'heartbeat',
+
     // Error
     ERROR = 'error',
+}
+
+export interface Attachment {
+    id: string;
+    file_name: string;
+    file_size: number;
+    mime_type: string;
+    url: string;
 }
 
 export interface SocketMessage {
     type: SocketEventType;
     payload?: any;
     timestamp?: Date;
+    attachments?: Attachment[];
 }

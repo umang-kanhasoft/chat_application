@@ -32,6 +32,12 @@ const config = {
         port: Number(process.env.REDIS_PORT),
         redisURL: process.env.REDIS_URL!,
     },
+    cloudinary: {
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+        apiKey: process.env.CLOUDINARY_API_KEY!,
+        apiSecret: process.env.CLOUDINARY_API_SECRET!,
+        apiEnvironmentVariable: process.env.API_ENVIRONMENT_VARIABLE!,
+    },
     socket: {
         heartbeatInterval: Number(process.env.WS_HEARTBEAT_INTERVAL),
         cors: {

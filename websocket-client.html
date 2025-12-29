@@ -758,7 +758,6 @@
             function sendMessage() {
                 const content = document.getElementById('messageInput').value.trim();
                 if (!content || !selectedUserId) return;
-
                 ws.send(
                     JSON.stringify({
                         type: 'message_send',

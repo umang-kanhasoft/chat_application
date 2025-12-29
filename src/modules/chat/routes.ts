@@ -1,203 +1,66 @@
+import multipart from '@fastify/multipart';
 import { FastifyPluginAsync } from 'fastify';
-import Message, { MESSAGE_STATUS } from '../../models/Message';
-import User from '../../models/User';
-import chatService from '../../services/chat.service';
-import socketManager from '../../services/socket.manager';
-import { AuthenticatedSocket, SocketEventType, SocketMessage } from '../../types/socket.types';
+import { config } from '../../config/config';
+import cloudinary from '../../config/cloudinary';
+import { cloudinaryService } from '../../services/cloudinary.service';
 
-const chat: FastifyPluginAsync = async (fastify): Promise<void> => {
-    fastify.get('/', { websocket: true }, async (connection, request) => {
-        const socket = connection as AuthenticatedSocket;
-        let authenticatedUserId: string | null = null;
+const chatRoutes: FastifyPluginAsync = async (fastify) => {
+    await fastify.register(multipart, {
+        limits: {
+            fileSize: 50 * 1024 * 1024, // 50MB
+        },
+    });
 
-        socket.on('message', async (data: Buffer) => {
-            try {
-                const message: SocketMessage = JSON.parse(data.toString());
-                switch (message.type) {
-                    case SocketEventType.AUTH:
-                        const { userId } = message.payload;
-                        const user = await User.findByPk(userId);
+    fastify.post('/upload', async (request, reply) => {
+        try {
+            const data = await request.file();
 
-                        if (!user) {
-                            socket.send(
-                                JSON.stringify({
-                                    type: SocketEventType.AUTH_FAILED,
-                                    payload: { error: 'Invalid user' },
-                                }),
-                            );
-                            socket.close();
-                            return;
-                        }
-
-                        authenticatedUserId = userId;
-                        socket.userName = user.name;
-                        socketManager.addConnection(userId, socket);
-
-                        await User.update(
-                            { isOnline: true, lastSeen: new Date() },
-                            { where: { id: userId } },
-                        );
-
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.AUTH_SUCCESS,
-                                payload: { userId, userName: user.name },
-                            }),
-                        );
-
-                        socketManager.broadcast(
-                            {
-                                type: SocketEventType.USER_ONLINE,
-                                payload: { userId, userName: user.name },
-                            },
-                            userId,
-                        );
-
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.ONLINE_USERS,
-                                payload: { users: socketManager.getOnlineUsers() },
-                            }),
-                        );
-                        break;
-
-                    case SocketEventType.MESSAGE_SEND:
-                        if (!authenticatedUserId) {
-                            socket.send(
-                                JSON.stringify({
-                                    type: SocketEventType.ERROR,
-                                    payload: { error: 'Not authenticated' },
-                                }),
-                            );
-                            return;
-                        }
-
-                        const { receiver_id, projectId, content } = message.payload;
-                        const sentMessage = await chatService.sendMessage(
-                            authenticatedUserId,
-                            receiver_id,
-                            projectId,
-                            content,
-                        );
-
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.MESSAGE_RECEIVED,
-                                payload: sentMessage,
-                            }),
-                        );
-                        break;
-
-                    case SocketEventType.MESSAGE_HISTORY:
-                        if (!authenticatedUserId) return;
-
-                        const { projectId: pid, otherUserId } = message.payload;
-                        const history = await chatService.getMessageHistory(
-                            authenticatedUserId,
-                            pid,
-                            otherUserId,
-                        );
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.MESSAGE_HISTORY,
-                                payload: { messages: history },
-                            }),
-                        );
-                        break;
-
-                    case SocketEventType.GET_PROJECT_USERS:
-                        if (!authenticatedUserId) return;
-
-                        const { projectId: projId } = message.payload;
-                        const users = await chatService.getProjectUsers(
-                            projId,
-                            authenticatedUserId,
-                        );
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.PROJECT_USERS,
-                                payload: { users },
-                            }),
-                        );
-                        break;
-
-                    case SocketEventType.GET_USER_PROJECTS:
-                        if (!authenticatedUserId) return;
-
-                        const projects = await chatService.getUserProjects(authenticatedUserId);
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.USER_PROJECTS,
-                                payload: { projects },
-                            }),
-                        );
-                        break;
-
-                    case SocketEventType.MARK_AS_READ:
-                        if (!authenticatedUserId) return;
-
-                        const { messageIds } = message.payload;
-                        await Message.update(
-                            { status: MESSAGE_STATUS.READ },
-                            { where: { id: messageIds, receiver_id: authenticatedUserId } },
-                        );
-
-                        const readMessages = await Message.findAll({
-                            where: { id: messageIds },
-                            attributes: ['id', 'sender_id'],
-                        });
-
-                        readMessages.forEach((msg) => {
-                            socketManager.sendToUser(msg.sender_id, {
-                                type: SocketEventType.MESSAGE_READ,
-                                payload: { messageIds, readBy: authenticatedUserId },
-                            });
-                        });
-                        break;
-
-                    default:
-                        socket.send(
-                            JSON.stringify({
-                                type: SocketEventType.ERROR,
-                                payload: { error: 'Unknown event type' },
-                            }),
-                        );
-                }
-            } catch (error) {
-                fastify.log.error(`WebSocket message error: ${error}`);
-                socket.send(
-                    JSON.stringify({
-                        type: SocketEventType.ERROR,
-                        payload: { error: 'Invalid message format' },
-                    }),
-                );
+            if (!data) {
+                return reply.code(400).send({ error: 'No file uploaded' });
             }
-        });
 
-        socket.on('pong', () => {
-            if (authenticatedUserId) {
-                socketManager.handlePong(authenticatedUserId);
-            }
-        });
+            const buffer = await data.toBuffer();
+            const result = await cloudinaryService.uploadImage(
+                buffer,
+                data.filename,
+                data.mimetype,
+            );
 
-        socket.on('close', () => {
-            if (authenticatedUserId) {
-                User.update(
-                    { isOnline: false, lastSeen: new Date() },
-                    { where: { id: authenticatedUserId } },
-                );
-                socketManager.removeConnection(authenticatedUserId);
-                socketManager.broadcast({
-                    type: SocketEventType.USER_OFFLINE,
-                    payload: { userId: authenticatedUserId },
-                });
-            }
-        });
+            return {
+                success: true,
+                url: result.url,
+                publicId: result.publicId,
+                fileName: result.fileName,
+                fileSize: result.fileSize,
+                mimeType: result.mimeType,
+            };
+        } catch (error) {
+            console.error('Upload error:', error);
+            const message = error instanceof Error ? error.message : 'Upload failed';
+            return reply.code(500).send({ error: message });
+        }
+    });
 
-        socket.on('error', (error) => {
-            fastify.log.error(`Socket error: ${error.message}`);
-        });
+    fastify.get('/cloudinary-signature', async () => {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'chat_images';
+
+        const signature = cloudinary.utils.api_sign_request(
+            {
+                timestamp,
+                folder,
+            },
+            config.cloudinary.apiSecret,
+        );
+
+        return {
+            cloudName: config.cloudinary.cloudName,
+            apiKey: config.cloudinary.apiKey,
+            timestamp,
+            folder,
+            signature,
+        };
     });
 };
 
-export default chat;
+export default chatRoutes;

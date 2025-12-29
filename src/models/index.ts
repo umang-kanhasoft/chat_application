@@ -1,3 +1,4 @@
+import Attachment from './Attachment';
 import Bid from './Bid';
 import Message from './Message';
 import Project from './Project';
@@ -14,6 +15,7 @@ const models = {
     ProjectSkill,
     Bid,
     Message,
+    Attachment,
 };
 
 // User <-> Skill (Many-To-Many through UserSkill)
@@ -36,6 +38,10 @@ User.hasMany(Message, { foreignKey: 'sender_id', as: 'sendMessage' });
 User.hasMany(Message, { foreignKey: 'receiver_id', as: 'receivedMessage' });
 Message.belongsTo(User, { foreignKey: 'sender_id', as: 'sender' });
 Message.belongsTo(User, { foreignKey: 'receiver_id', as: 'receiver' });
+
+// Message <-> Attachment
+Message.hasMany(Attachment, { foreignKey: 'message_id', as: 'attachments' });
+Attachment.belongsTo(Message, { foreignKey: 'message_id', as: 'message' });
 
 // User <-> Bid
 User.hasMany(Bid, { foreignKey: 'user_id', as: 'bids' });

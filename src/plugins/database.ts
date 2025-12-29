@@ -17,8 +17,8 @@ const databasePlugin: FastifyPluginAsync = async (fastify) => {
         await sequelize.authenticate();
         fastify.log.info('Database connection established successfully.');
 
-        await sequelize.sync({ alter: true });
-        fastify.log.info('Database synchronized successfully.');
+        // await sequelize.sync({ alter: true });
+        // fastify.log.info('Database synchronized successfully.');
 
         fastify.decorate('db', {
             sequelize,
