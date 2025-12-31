@@ -9,6 +9,7 @@ export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPlugin
 const options: AppOptions = {
     logger,
     genReqId: () => randomUUID(),
+    pluginTimeout: Number(process.env.FASTIFY_PLUGIN_TIMEOUT_MS || 60000),
 };
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
