@@ -81,10 +81,11 @@ export class UploadService {
 
     // Helper to get API URL
     private getApiBaseUrl(): string {
-        const hostname = window.location.hostname;
-        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        const port = import.meta.env.VITE_API_PORT || '4000';
-        return `${protocol}//${hostname}:${port}/chat`;
+        const configured = (import.meta.env.VITE_API_URL as string | undefined) || '';
+        const base = configured
+            ? configured.replace(/\/+$/, '')
+            : `${window.location.protocol === 'https:' ? 'https:' : 'http:'}//${window.location.hostname}:4000`;
+        return `${base}/chat`;
     }
 }
 

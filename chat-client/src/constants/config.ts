@@ -1,4 +1,4 @@
-export const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
+export const WS_URL = import.meta.env.VITE_WS_URL;
 
 export const WEBRTC_ICE_SERVERS: RTCIceServer[] = (() => {
     const raw = import.meta.env.VITE_WEBRTC_ICE_SERVERS as string | undefined;

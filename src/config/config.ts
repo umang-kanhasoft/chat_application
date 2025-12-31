@@ -2,6 +2,10 @@ import 'dotenv/config';
 
 const config = {
     port: Number(process.env.PORT || 4000),
+    serverURL: (process.env.SERVER_URL || process.env.RENDER_EXTERNAL_URL || '').replace(
+        /\/+$/,
+        '',
+    ),
     clientURL: process.env.CLIENT_URL!,
     environment: process.env.NODE_ENV!,
     otel: {

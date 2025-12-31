@@ -38,10 +38,12 @@ export function AuthScreen() {
     }, [oauthUserId, oauthError, connect]);
 
     const getApiBaseUrl = () => {
+        const configured = (import.meta.env.VITE_API_URL as string | undefined) || '';
+        if (configured) return configured.replace(/\/+$/, '');
+
         const hostname = window.location.hostname;
         const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        const port = import.meta.env.VITE_API_PORT || '4000';
-        return `${protocol}//${hostname}:${port}`;
+        return `${protocol}//${hostname}:4000`;
     };
 
     const handleGoogleLogin = () => {

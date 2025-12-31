@@ -59,7 +59,7 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
                                                 statusText={isFinishing ? 'Finishing…' : undefined}
                                             />
                                         ) : attachment.mime_type.startsWith('image/') ? (
-                                            <div className="w-full h-60 bg-black/5">
+                                            <div className="w-full h-48 bg-black/5">
                                                 <img
                                                     src={imageUrl}
                                                     alt={attachment.file_name}

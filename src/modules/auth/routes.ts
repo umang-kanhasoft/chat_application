@@ -19,7 +19,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             },
             auth: oauthPlugin.GOOGLE_CONFIGURATION,
         },
-        callbackUri: (req) => `${req.protocol}://${req.headers.host}/auth/google/callback`,
+        callbackUri: (req) => {
+            const baseUrl =
+                config.serverURL || `${req.protocol}://${String(req.headers.host || '')}`;
+            return `${baseUrl.replace(/\/+$/, '')}/auth/google/callback`;
+        },
         callbackUriParams: {
             access_type: 'offline',
         },
