@@ -88,7 +88,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 : await User.create({
                       name,
                       email,
-                      role: ROLES.FREELANCER,
+                      role: ROLES.USER,
                       lastSeen: new Date(),
                       isOnline: false,
                   });

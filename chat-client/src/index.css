@@ -10,11 +10,21 @@
 
 :root {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   margin: 0;
   padding: 0;
+  background: var(--color-chat-bg);
 }
 
 * {

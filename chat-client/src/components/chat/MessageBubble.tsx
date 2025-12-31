@@ -20,7 +20,7 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
         <div className={cn('flex w-full', isSent ? 'justify-end' : 'justify-start')}>
             <div
                 className={cn(
-                    'max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-sm border border-black/5',
+                    'max-w-[88%] sm:max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-sm border border-black/5',
                     isSent
                         ? 'bg-chat-sent text-gray-900 rounded-br-md'
                         : 'bg-chat-received text-gray-900 rounded-bl-md',
@@ -28,7 +28,7 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
             >
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1">
                         <div className="flex flex-col gap-2">
                             {message.attachments.map((attachment) => {
                                 // Handle both relative and absolute URLs
@@ -63,7 +63,7 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
                                                 <img
                                                     src={imageUrl}
                                                     alt={attachment.file_name}
-                                                    className="w-full h-full object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                                    className="h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
                                                     loading="lazy"
                                                     onLoad={() => {
                                                         onMediaLoad?.();

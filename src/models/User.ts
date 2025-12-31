@@ -2,6 +2,7 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/sequalize';
 
 export enum ROLES {
+    USER = 'USER',
     CLIENT = 'CLIENT',
     FREELANCER = 'FREELANCER',
     BOTH = 'BOTH',
@@ -44,7 +45,7 @@ User.init(
         role: {
             type: DataTypes.ENUM(...Object.values(ROLES)),
             allowNull: false,
-            defaultValue: ROLES.FREELANCER,
+            defaultValue: ROLES.USER,
         },
         isOnline: {
             type: DataTypes.BOOLEAN,

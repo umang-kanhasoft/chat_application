@@ -67,8 +67,14 @@ export default {
     Mutation: {
         createBid: async (_: unknown, { data }: CreateBidArgs) => {
             const user = await User.findByPk(data.user_id);
-            if (!user || ![ROLES.FREELANCER].includes(user.role)) {
+            if (!user) {
                 throw new Error('User not found');
+            }
+
+            if (user.role === ROLES.USER) {
+                await user.update({ role: ROLES.FREELANCER });
+            } else if (user.role === ROLES.CLIENT) {
+                await user.update({ role: ROLES.BOTH });
             }
             const project = await Project.findByPk(data.project_id);
             if (!project) {
@@ -79,8 +85,14 @@ export default {
         updateBid: async (_: unknown, { id, data }: UpdateBidArgs) => {
             if (data.user_id) {
                 const user = await User.findByPk(data.user_id);
-                if (!user || ![ROLES.FREELANCER].includes(user.role)) {
+                if (!user) {
                     throw new Error('User not found');
+                }
+
+                if (user.role === ROLES.USER) {
+                    await user.update({ role: ROLES.FREELANCER });
+                } else if (user.role === ROLES.CLIENT) {
+                    await user.update({ role: ROLES.BOTH });
                 }
             }
             if (data.project_id) {

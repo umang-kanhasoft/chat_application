@@ -6,7 +6,7 @@ import { useCallStore } from '../../store/callStore';
 import { callService } from '../../services/call.service';
 
 export function ChatHeader() {
-    const { selectedUser, isUserTyping } = useChatStore();
+    const { selectedUser, isUserTyping, setSelectedUser } = useChatStore();
     const { isUserOnline } = useConnectionStore();
     const { status: callStatus } = useCallStore();
 
@@ -19,7 +19,28 @@ export function ChatHeader() {
     const canStartCall = online && callStatus === 'IDLE';
 
     return (
-        <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center gap-3 shadow-sm">
+        <div className="sticky top-0 z-20 px-4 md:px-6 pb-3.5 pt-[calc(env(safe-area-inset-top)+14px)] bg-white/90 backdrop-blur border-b border-black/10 flex items-center gap-2.5 shadow-sm">
+            <button
+                type="button"
+                onClick={() => setSelectedUser(null, null)}
+                className="md:hidden -ml-1 w-10 h-10 rounded-full flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-colors"
+                aria-label="Back"
+                title="Back"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+            </button>
             <Avatar name={selectedUser.name} isOnline={online} size="md" />
             <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 text-base">{selectedUser.name}</h3>

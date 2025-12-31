@@ -25,6 +25,10 @@ export enum SocketEventType {
     GET_USER_PROJECTS = 'get_user_projects',
     USER_PROJECTS = 'user_projects',
 
+    // Global Users (no project)
+    GET_GLOBAL_USERS = 'get_global_users',
+    GLOBAL_USERS = 'global_users',
+
     // Presence
     USER_ONLINE = 'user_online',
     USER_OFFLINE = 'user_offline',

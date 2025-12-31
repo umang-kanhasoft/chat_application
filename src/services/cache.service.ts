@@ -40,9 +40,12 @@ export class CacheService {
         }
     }
 
-    async invalidateChatCache(projectId: string, userId?: string): Promise<void> {
+    async invalidateChatCache(projectId: string | null, userId?: string): Promise<void> {
         try {
-            const pattern = userId ? `chat:${projectId}:${userId}:*` : `chat:${projectId}:*`;
+            const normalizedProjectId = projectId ?? 'global';
+            const pattern = userId
+                ? `chat:${normalizedProjectId}:${userId}:*`
+                : `chat:${normalizedProjectId}:*`;
             const keys = await this.client.keys(pattern);
             for (const key of keys) {
                 await this.client.del(key);

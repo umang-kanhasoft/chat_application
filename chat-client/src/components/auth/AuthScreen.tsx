@@ -52,10 +52,10 @@ export function AuthScreen() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark p-4">
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary to-primary-dark p-4">
             <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
+                    <h1 className="text-3xl font-bold bg-linear-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
                         💬 Chat
                     </h1>
                     <p className="text-gray-600">Connect to start messaging</p>

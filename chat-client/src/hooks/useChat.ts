@@ -25,8 +25,13 @@ export function useChat() {
         useState<InitialTopMostItemIndex>(null);
     const [unreadAnchorMessageId, setUnreadAnchorMessageId] = useState<string | null>(null);
     const { currentUserId } = useAuthStore();
-    const { selectedProjectId, selectedUserId, clearUnreadCount, incrementUnreadCount } =
-        useChatStore();
+    const {
+        selectedProjectId,
+        selectedUserId,
+        clearUnreadCount,
+        incrementUnreadCount,
+        bumpLastMessageAt,
+    } = useChatStore();
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const loadingMoreStartedAtRef = useRef<number | null>(null);
     const messagesRef = useRef<Message[]>([]);
@@ -87,11 +92,13 @@ export function useChat() {
             if (
                 !currentUserId ||
                 !selectedUserId ||
-                !selectedProjectId ||
                 (!content.trim() && (!attachments || attachments.length === 0))
             ) {
                 return false;
             }
+
+            // Move this conversation to the top immediately (WhatsApp behavior).
+            bumpLastMessageAt(selectedUserId);
 
             const clientMsgId =
                 tempId || `c_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -121,7 +128,7 @@ export function useChat() {
                 const optimisticMessage: Message = {
                     id: clientMsgId,
                     clientMsgId,
-                    projectId: selectedProjectId,
+                    projectId: selectedProjectId ?? null,
                     sender_id: currentUserId,
                     receiver_id: selectedUserId,
                     content: trimmedContent,
@@ -154,26 +161,26 @@ export function useChat() {
                 payload: {
                     clientMsgId,
                     receiver_id: selectedUserId,
-                    projectId: selectedProjectId,
+                    projectId: selectedProjectId ?? null,
                     content: trimmedContent,
                     attachments,
                 },
             });
             return true;
         },
-        [currentUserId, selectedUserId, selectedProjectId],
+        [currentUserId, selectedUserId, selectedProjectId, bumpLastMessageAt],
     );
 
     const requestMessageHistory = useCallback(
         (page: number) => {
-            if (!currentUserId || !selectedProjectId || !selectedUserId) {
+            if (!currentUserId || !selectedUserId) {
                 return;
             }
 
             wsService.send({
                 type: SocketEventType.MESSAGE_HISTORY,
                 payload: {
-                    projectId: selectedProjectId,
+                    projectId: selectedProjectId ?? null,
                     receiverId: selectedUserId,
                     page,
                     limit: HISTORY_PAGE_SIZE,
@@ -185,7 +192,7 @@ export function useChat() {
 
     // Load latest message history page (bottom of chat)
     const loadMessageHistory = useCallback(() => {
-        if (!currentUserId || !selectedProjectId || !selectedUserId) {
+        if (!currentUserId || !selectedUserId) {
             return;
         }
 
@@ -202,7 +209,7 @@ export function useChat() {
 
     const loadOlderMessages = useCallback(() => {
         if (isLoadingHistory || isLoadingMoreHistory) return;
-        if (!selectedUserId || !selectedProjectId || !currentUserId) return;
+        if (!selectedUserId || !currentUserId) return;
         if (historyPage >= historyTotalPages) return;
 
         setIsLoadingMoreHistory(true);
@@ -250,7 +257,7 @@ export function useChat() {
 
     // Send typing indicator
     const sendTypingIndicator = useCallback(() => {
-        if (!selectedProjectId || !selectedUserId) {
+        if (!selectedUserId) {
             return;
         }
 
@@ -262,14 +269,14 @@ export function useChat() {
         // Send typing start
         wsService.send({
             type: SocketEventType.TYPING_START,
-            payload: { projectId: selectedProjectId },
+            payload: { projectId: selectedProjectId ?? null },
         });
 
         // Auto-send typing stop after timeout
         typingTimeoutRef.current = setTimeout(() => {
             wsService.send({
                 type: SocketEventType.TYPING_STOP,
-                payload: { projectId: selectedProjectId },
+                payload: { projectId: selectedProjectId ?? null },
             });
         }, CONFIG.CHAT.TYPING_TIMEOUT);
     }, [selectedProjectId, selectedUserId]);
@@ -284,8 +291,18 @@ export function useChat() {
             const msg: Message = message.payload;
 
             // Only handle messages for current project
-            if (msg.projectId !== selectedProjectId) {
+            if ((msg.projectId ?? null) !== (selectedProjectId ?? null)) {
                 return;
+            }
+
+            // Always bump the conversation to the top for activity ordering.
+            const otherUserId =
+                msg.sender_id === currentUserId
+                    ? (msg.receiver_id as string | undefined)
+                    : msg.sender_id;
+            if (otherUserId) {
+                const ts = Date.parse(msg.timestamp);
+                bumpLastMessageAt(otherUserId, Number.isFinite(ts) ? ts : Date.now());
             }
 
             // Check if message belongs to the current open conversation
@@ -344,20 +361,6 @@ export function useChat() {
                 }
                 return [...prev, msg];
             });
-
-            // Handle unread count and read marking for active conversation
-            if (isFromSelectedUser && msg.receiver_id === currentUserId) {
-                // Message from selected user - mark as read instantly
-                if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
-                    markMessagesAsRead([msg.id]);
-                }
-            } else if (!isSentByMe) {
-                // Message from different user (not the one we are chatting with) - increment unread
-                // This part is technically redundant due to the check above but kept for safety
-                if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
-                    incrementUnreadCount(msg.sender_id);
-                }
-            }
         });
 
         // Message history handler
@@ -403,6 +406,16 @@ export function useChat() {
                 }
 
                 setMessages(history);
+
+                // Set last activity time for this conversation based on newest message.
+                if (selectedUserId && history.length > 0) {
+                    const newest = history.reduce((acc, m) => {
+                        const t = Date.parse(m.timestamp);
+                        const tt = Number.isFinite(t) ? t : 0;
+                        return tt > acc ? tt : acc;
+                    }, 0);
+                    if (newest > 0) bumpLastMessageAt(selectedUserId, newest);
+                }
 
                 setIsLoadingHistory(false);
                 setIsLoadingMoreHistory(false);
@@ -486,11 +499,12 @@ export function useChat() {
         markMessagesAsRead,
         clearUnreadCount,
         incrementUnreadCount,
+        bumpLastMessageAt,
     ]);
 
     // Load history when selected user changes
     useEffect(() => {
-        if (selectedUserId && selectedProjectId && currentUserId) {
+        if (selectedUserId && currentUserId) {
             loadMessageHistory();
         }
     }, [selectedUserId, selectedProjectId, currentUserId, loadMessageHistory]);

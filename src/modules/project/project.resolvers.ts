@@ -67,16 +67,28 @@ export default {
     Mutation: {
         createProject: async (_: unknown, { data }: CreateProjectArgs) => {
             const client = await User.findByPk(data.client_id);
-            if (!client || ![ROLES.CLIENT, ROLES.BOTH].includes(client.role)) {
+            if (!client) {
                 throw new Error('Client not found');
+            }
+
+            if (client.role === ROLES.USER) {
+                await client.update({ role: ROLES.CLIENT });
+            } else if (client.role === ROLES.FREELANCER) {
+                await client.update({ role: ROLES.BOTH });
             }
             return await Project.create(data);
         },
         updateProject: async (_: unknown, { id, data }: UpdateProjectArgs) => {
             if (data.client_id) {
                 const client = await User.findByPk(data.client_id);
-                if (!client || client.role !== ROLES.CLIENT) {
+                if (!client) {
                     throw new Error('Client not found');
+                }
+
+                if (client.role === ROLES.USER) {
+                    await client.update({ role: ROLES.CLIENT });
+                } else if (client.role === ROLES.FREELANCER) {
+                    await client.update({ role: ROLES.BOTH });
                 }
             }
             const project = await Project.findByPk(id);

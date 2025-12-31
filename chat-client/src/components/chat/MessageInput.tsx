@@ -180,7 +180,7 @@ export function MessageInput({
     };
 
     return (
-        <div className="p-4 bg-white border-t border-gray-200">
+        <div className="px-3 sm:px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] bg-white/90 backdrop-blur border-t border-black/10">
             {selectedFiles.length > 0 && (
                 <div className="mb-2">
                     <div className="flex flex-wrap">
@@ -209,7 +209,7 @@ export function MessageInput({
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-black/5 active:bg-black/10 rounded-full transition-colors"
                     disabled={disabled || isUploadingBatch}
                 >
                     <svg
@@ -235,7 +235,7 @@ export function MessageInput({
                     placeholder={
                         selectedFiles.length > 0 ? 'Add a caption...' : 'Type a message...'
                     }
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-4 py-2.5 border border-black/10 rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
                     disabled={disabled || isUploadingBatch}
                 />
 
@@ -243,6 +243,8 @@ export function MessageInput({
                     onClick={handleSend}
                     disabled={(!message.trim() && selectedFiles.length === 0) || isUploadingBatch}
                     isLoading={false}
+                    className="rounded-full w-11 h-11 p-0 shadow-sm"
+                    aria-label="Send"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"

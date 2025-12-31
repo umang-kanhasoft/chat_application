@@ -34,7 +34,7 @@ export class ChatService {
     async sendMessage(
         sender_id: string,
         receiver_id: string,
-        projectId: string,
+        projectId: string | null,
         content: string,
         attachments?: any[],
         clientMsgId?: string,
@@ -176,18 +176,21 @@ export class ChatService {
 
     async getMessageHistory(
         userId: string,
-        projectId: string,
+        projectId: string | null,
         otherUserId?: string,
         page = 1,
         limit = 50,
     ) {
-        const cacheKey = `chat:${projectId}:${userId}:${otherUserId || 'all'}:${page}:${limit}`;
+        const normalizedProjectId = projectId ?? 'global';
+        const cacheKey = `chat:${normalizedProjectId}:${userId}:${otherUserId || 'all'}:${page}:${limit}`;
         // Try cache first
         const cached = await cacheService.getChatHistory(cacheKey);
         if (cached) return { messages: cached, total: cached.length, page, totalPages: 1 };
 
         const offset = (page - 1) * limit;
-        const whereClause: any = { project_id: projectId };
+        const whereClause: any = {
+            project_id: projectId === null ? { [Op.is]: null } : projectId,
+        };
 
         if (otherUserId) {
             whereClause[Op.or] = [
@@ -236,6 +239,45 @@ export class ChatService {
 
         await cacheService.setChatHistory(cacheKey, result.messages);
         return result;
+    }
+
+    async getGlobalUsers(currentUserId: string) {
+        const cacheKey = `global_users:v2:${currentUserId}`;
+
+        const cached = await cacheService.getChatHistory(cacheKey);
+        if (cached) return cached;
+
+        const users = await User.findAll({
+            where: {
+                id: { [Op.ne]: currentUserId },
+            },
+            attributes: ['id', 'name', 'role', 'isOnline', 'lastSeen'],
+            order: [['name', 'ASC']],
+        });
+
+        const results = [] as any[];
+        for (const u of users as any[]) {
+            const unreadCount = await Message.count({
+                where: {
+                    sender_id: u.id,
+                    receiver_id: currentUserId,
+                    project_id: { [Op.is]: null },
+                    status: { [Op.ne]: MESSAGE_STATUS.READ },
+                },
+            });
+
+            results.push({
+                id: u.id,
+                name: u.name,
+                role: u.role,
+                isOnline: u.isOnline,
+                lastSeen: u.lastSeen,
+                unreadCount,
+            });
+        }
+
+        await cacheService.setChatHistory(cacheKey, results, 120);
+        return results;
     }
 
     async getProjectUsers(projectId: string, currentUserId: string) {

@@ -176,7 +176,7 @@ export function MessageList({
                 components={{
                     Header: () =>
                         isLoadingMore ? (
-                            <div className="sticky top-0 z-10 py-2 flex items-center justify-center bg-chat-bg/95 backdrop-blur">
+                            <div className="sticky top-0 z-10 py-2 flex items-center justify-center bg-chat-bg/85 backdrop-blur">
                                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 shadow-sm border border-black/5">
                                     <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                     <span className="text-xs text-gray-600">
@@ -185,10 +185,10 @@ export function MessageList({
                                 </div>
                             </div>
                         ) : null,
-                    Footer: () => <div className="h-3" />,
+                    Footer: () => <div className="h-4" />,
                 }}
                 itemContent={(_, message) => (
-                    <div className="px-4 py-1">
+                    <div className="px-3 sm:px-4 py-1">
                         {unreadAnchorMessageId && message.id === unreadAnchorMessageId ? (
                             <div className="py-2">
                                 <div className="flex items-center gap-3">

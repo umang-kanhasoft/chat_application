@@ -12,7 +12,7 @@ export interface MessageAttributes {
     content: string;
     sender_id: string;
     receiver_id: string;
-    project_id: string;
+    project_id: string | null;
     status: MESSAGE_STATUS;
     createdAt?: string;
     updatedAt?: string;
@@ -23,7 +23,7 @@ class Message extends Model<MessageAttributes> implements MessageAttributes {
     declare content: string;
     declare sender_id: string;
     declare receiver_id: string;
-    declare project_id: string;
+    declare project_id: string | null;
     declare status: MESSAGE_STATUS;
     declare createdAt: string;
     declare updatedAt: string;
@@ -50,7 +50,7 @@ Message.init(
         },
         project_id: {
             type: DataTypes.UUID,
-            allowNull: false,
+            allowNull: true,
         },
         status: {
             type: DataTypes.ENUM(...Object.values(MESSAGE_STATUS)),

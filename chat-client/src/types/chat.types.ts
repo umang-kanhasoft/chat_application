@@ -19,6 +19,10 @@ export const SocketEventType = {
     GET_USER_PROJECTS: 'get_user_projects',
     USER_PROJECTS: 'user_projects',
 
+    // Global Users (no project)
+    GET_GLOBAL_USERS: 'get_global_users',
+    GLOBAL_USERS: 'global_users',
+
     // Presence
     USER_ONLINE: 'user_online',
     USER_OFFLINE: 'user_offline',
@@ -86,7 +90,7 @@ export interface Attachment {
 export interface Message {
     id: string;
     clientMsgId?: string;
-    projectId: string;
+    projectId: string | null;
     sender_id: string;
     receiver_id?: string;
     content: string;

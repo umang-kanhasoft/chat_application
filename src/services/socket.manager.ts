@@ -260,10 +260,11 @@ class SocketManager {
 
                         const {
                             receiverId: historyReceiverId,
-                            projectId: historyProjectId,
+                            projectId: rawHistoryProjectId,
                             page = 1,
                             limit = 50,
                         } = message.payload;
+                        const historyProjectId: string | null = rawHistoryProjectId ?? null;
                         const history = await chatService.getMessageHistory(
                             authenticatedUserId,
                             historyProjectId,
@@ -294,8 +295,14 @@ class SocketManager {
                             return;
                         }
 
-                        const { receiver_id, projectId, content, attachments, clientMsgId } =
-                            message.payload;
+                        const {
+                            receiver_id,
+                            projectId: rawProjectId,
+                            content,
+                            attachments,
+                            clientMsgId,
+                        } = message.payload;
+                        const projectId: string | null = rawProjectId ?? null;
 
                         if (!content && (!attachments || attachments.length === 0)) {
                             socket.emit('message', {
@@ -389,6 +396,15 @@ class SocketManager {
                         });
                         break;
 
+                    case SocketEventType.GET_GLOBAL_USERS:
+                        if (!authenticatedUserId) return;
+                        const globalUsers = await chatService.getGlobalUsers(authenticatedUserId);
+                        socket.emit('message', {
+                            type: SocketEventType.GLOBAL_USERS,
+                            payload: { users: globalUsers },
+                        });
+                        break;
+
                     case SocketEventType.GET_PROJECT_USERS:
                         if (!authenticatedUserId) return;
                         const { projectId: userProjectId } = message.payload;
@@ -421,7 +437,7 @@ class SocketManager {
 
                     case SocketEventType.TYPING_START:
                         if (!authenticatedUserId) return;
-                        const { projectId: typingProjectId } = message.payload;
+                        const typingProjectId: string | null = message.payload?.projectId ?? null;
                         this.broadcast(
                             {
                                 type: SocketEventType.TYPING_START,
@@ -609,7 +625,8 @@ class SocketManager {
 
                     case SocketEventType.TYPING_STOP:
                         if (!authenticatedUserId) return;
-                        const { projectId: stopTypingProjectId } = message.payload;
+                        const stopTypingProjectId: string | null =
+                            message.payload?.projectId ?? null;
                         this.broadcast(
                             {
                                 type: SocketEventType.TYPING_STOP,
@@ -627,9 +644,13 @@ class SocketManager {
                         break;
 
                     default:
+                        log.warn(
+                            { userId: authenticatedUserId || socket.userId, type: message.type },
+                            'Unknown websocket event type',
+                        );
                         socket.emit('message', {
                             type: SocketEventType.ERROR,
-                            payload: { error: 'Unknown event type' },
+                            payload: { error: 'Unknown event type', receivedType: message.type },
                         });
                         break;
                 }
