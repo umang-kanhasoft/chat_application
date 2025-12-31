@@ -1,8 +1,15 @@
 {
-    "extends": "fastify-tsconfig",
     "compilerOptions": {
         "outDir": "dist",
-        "sourceMap": true
+        "sourceMap": true,
+        "target": "ES2022",
+        "lib": ["ES2022"],
+        "module": "CommonJS",
+        "moduleResolution": "Node",
+        "types": ["node"],
+        "esModuleInterop": true,
+        "downlevelIteration": true,
+        "skipLibCheck": true
     },
     "include": ["src/**/*.ts"]
 }

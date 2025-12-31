@@ -3033,6 +3033,7 @@ __metadata:
     graphql: "npm:^16.12.0"
     http-status: "npm:^2.1.0"
     pg: "npm:^8.16.3"
+    pino-pretty: "npm:^13.0.0"
     prettier: "npm:^3.7.4"
     redis: "npm:^5.10.0"
     sequelize: "npm:^6.37.7"

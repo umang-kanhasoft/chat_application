@@ -23,7 +23,9 @@ export class CacheService {
     async getChatHistory(key: string): Promise<any[] | null> {
         try {
             const cached = await this.client.get(key);
-            return cached ? JSON.parse(cached) : null;
+            const cachedString =
+                typeof cached === 'string' ? cached : cached ? cached.toString('utf8') : null;
+            return cachedString ? JSON.parse(cachedString) : null;
         } catch (error) {
             log.error({ err: error, key }, 'Cache get error');
             return null;
@@ -42,7 +44,9 @@ export class CacheService {
         try {
             const pattern = userId ? `chat:${projectId}:${userId}:*` : `chat:${projectId}:*`;
             const keys = await this.client.keys(pattern);
-            if (keys.length) await this.client.del(keys);
+            for (const key of keys) {
+                await this.client.del(key);
+            }
         } catch (error) {
             log.error({ err: error, projectId, userId }, 'Cache invalidation error');
         }
@@ -52,7 +56,9 @@ export class CacheService {
         try {
             const pattern = `chat:*:${userId}:*`;
             const keys = await this.client.keys(pattern);
-            if (keys.length) await this.client.del(keys);
+            for (const key of keys) {
+                await this.client.del(key);
+            }
         } catch (error) {
             log.error({ err: error, userId }, 'User cache invalidation error');
         }

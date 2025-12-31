@@ -8,7 +8,7 @@
     },
     "scripts": {
         "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
-        "start": "npm run build:ts && fastify start -l info -p $PORT -r dist/instrumentation.js dist/app.js",
+        "start": "fastify start -l info -p $PORT -r dist/instrumentation.js dist/app.js",
         "build:ts": "tsc",
         "watch:ts": "tsc -w",
         "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
@@ -43,6 +43,7 @@
         "@opentelemetry/semantic-conventions": "^1.38.0",
         "@sentry/node": "^10.32.1",
         "@sentry/profiling-node": "^10.32.1",
+        "@sinclair/typebox": "^0.34.41",
         "@socket.io/redis-adapter": "^8.3.0",
         "cloudinary": "^2.8.0",
         "fastify": "^5.0.0",
@@ -54,11 +55,11 @@
         "pg": "^8.16.3",
         "redis": "^5.10.0",
         "sequelize": "^6.37.7",
-        "socket.io": "^4.8.3"
+        "socket.io": "^4.8.3",
+        "@types/node": "^24.0.8",
+        "typescript": "~5.9.2"
     },
     "devDependencies": {
-        "@sinclair/typebox": "^0.34.41",
-        "@types/node": "^24.0.8",
         "@types/pg": "^8",
         "c8": "^10.1.2",
         "concurrently": "^9.0.0",
@@ -67,8 +68,7 @@
         "fastify-tsconfig": "^3.0.0",
         "pino-pretty": "^13.0.0",
         "prettier": "^3.7.4",
-        "ts-node": "^10.4.0",
-        "typescript": "~5.9.2"
+        "ts-node": "^10.4.0"
     },
     "packageManager": "yarn@1.22.22"
 }
