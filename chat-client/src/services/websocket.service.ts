@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { WS_URL } from '../constants/config';
-import { SocketEventType, ConnectionStatus, type SocketMessage } from '../types/chat.types';
+import { ConnectionStatus, SocketEventType, type SocketMessage } from '../types/chat.types';
 
 type MessageHandler = (message: SocketMessage) => void;
 type ConnectionStatusHandler = (status: ConnectionStatus) => void;
@@ -11,6 +11,7 @@ class SocketService {
     private connectionStatusHandlers: ConnectionStatusHandler[] = [];
     private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
     private connectingPromise: Promise<void> | null = null;
+    private authUserId: string | null = null;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private isConnecting = false;
@@ -50,24 +51,41 @@ class SocketService {
         this.socket.off('message');
 
         this.socket.on('connect', () => {
-            console.log('Socket.io connected');
             this.reconnectAttempts = 0;
             this.isConnecting = false;
             this.setConnectionStatus(ConnectionStatus.CONNECTED);
             this.connectingPromise = null;
+
+            // If we already know the userId (from a previous auth), re-authenticate
+            // automatically after reconnects / server-side disconnects.
+            if (this.authUserId) {
+                this.send({
+                    type: SocketEventType.AUTH,
+                    payload: { userId: this.authUserId },
+                });
+            }
             resolve();
         });
 
         this.socket.on('disconnect', (reason) => {
-            console.log(`Socket.io disconnected: ${reason}`);
             this.isConnecting = false;
             this.setConnectionStatus(ConnectionStatus.DISCONNECTED);
             this.connectingPromise = null;
 
             // Only auto-reconnect for certain disconnect reasons
             if (reason === 'io server disconnect') {
-                // Server forcefully disconnected, don't auto-reconnect
-                this.reconnectAttempts = this.maxReconnectAttempts;
+                // Server disconnected us (e.g. server restart or session reset).
+                // Socket.IO won't auto-reconnect in this case, so we trigger it.
+                this.reconnectAttempts = 0;
+                setTimeout(() => {
+                    if (this.socket && !this.socket.connected) {
+                        try {
+                            this.socket.connect();
+                        } catch {
+                            // ignore
+                        }
+                    }
+                }, 1000);
             }
         });
 
@@ -85,13 +103,11 @@ class SocketService {
             }
         });
 
-        this.socket.on('reconnect_attempt', (attemptNumber) => {
-            console.log(`Reconnection attempt ${attemptNumber}`);
+        this.socket.on('reconnect_attempt', () => {
             this.setConnectionStatus(ConnectionStatus.RECONNECTING);
         });
 
-        this.socket.on('reconnect', (attemptNumber) => {
-            console.log(`Reconnected after ${attemptNumber} attempts`);
+        this.socket.on('reconnect', () => {
             this.reconnectAttempts = 0;
         });
 
@@ -124,7 +140,6 @@ class SocketService {
         // Throttle connection attempts
         const now = Date.now();
         if (now - this.lastConnectAttempt < this.minConnectInterval) {
-            console.log('Connection attempt throttled');
             return Promise.reject(new Error('Connection attempt too soon'));
         }
         this.lastConnectAttempt = now;
@@ -254,6 +269,7 @@ class SocketService {
      * Authenticate user
      */
     authenticate(userId: string): void {
+        this.authUserId = userId;
         this.send({
             type: SocketEventType.AUTH,
             payload: { userId },

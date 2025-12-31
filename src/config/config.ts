@@ -1,8 +1,22 @@
 import 'dotenv/config';
 
 const config = {
-    port: Number(process.env.PORT),
+    port: Number(process.env.PORT || 4000),
     clientURL: process.env.CLIENT_URL!,
+    environment: process.env.NODE_ENV!,
+    otel: {
+        endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318',
+        serviceName: process.env.OTEL_SERVICE_NAME || 'freelance-platform',
+        serviceVersion: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+        metricExportInterval: Number(process.env.OTEL_METRIC_EXPORT_INTERVAL || 60000),
+    },
+    cors: {
+        corsOrigin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || '',
+    },
+    google: {
+        clientId: process.env.CLIENT_ID!,
+        clientSecret: process.env.CLIENT_SECRET!,
+    },
     postgres: {
         host: process.env.DB_HOST!,
         port: process.env.DB_PORT!,
@@ -10,27 +24,12 @@ const config = {
         user: process.env.DB_USER!,
         password: process.env.DB_PASSWORD!,
     },
-    jwt: {
-        secret: process.env.JWT_SECRET!,
-        accessExpirationMinutes: process.env.JWT_ACCESS_EXPIRATION_MINUTES!,
-        refreshExpirationHours: process.env.JWT_REFRESH_EXPIRATION_HOURS!,
-        refreshTokenName: process.env.REFRESH_TOKEN_COOKIE_NAME!,
-    },
-    stripe: {
-        secretKey: process.env.STRIPE_SECRET_KEY!,
-        publishedKey: process.env.STRIPE_PUBLISHABLE_KEY!,
-        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
-    },
-    nodemailer: {
-        gmail_id: process.env.GMAIL_USER!,
-        gmail_password: process.env.GMAIL_APP_PASSWORD!,
-    },
     redis: {
         username: process.env.REDIS_USERNAME!,
         password: process.env.REDIS_PASSWORD!,
         host: process.env.REDIS_HOST!,
         port: Number(process.env.REDIS_PORT),
-        redisURL: process.env.REDIS_URL!,
+        url: process.env.REDIS_URL!,
     },
     cloudinary: {
         cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -44,6 +43,10 @@ const config = {
             origin: process.env.CLIENT_URL!,
             credentials: true,
         },
+    },
+    sentry: {
+        dsn: process.env.SENTRY_DSN,
+        logInit: process.env.SENTRY_LOG_INIT === 'true',
     },
 };
 

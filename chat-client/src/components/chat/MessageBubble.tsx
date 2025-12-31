@@ -1,31 +1,29 @@
 import { useState } from 'react';
 import { MessageStatus, type Message } from '../../types/chat.types';
-import { formatMessageTime, getStatusIcon } from '../../utils/helpers';
-import { cn } from '../../utils/helpers';
+import { cn, formatMessageTime, getStatusIcon } from '../../utils/helpers';
 import { ImageModal } from './ImageModal';
 import { UploadingPlaceholder } from './UploadingPlaceholder';
 
 interface MessageBubbleProps {
     message: Message;
     isSent: boolean;
+    onMediaLoad?: () => void;
 }
 
-export function MessageBubble({ message, isSent }: MessageBubbleProps) {
+export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubbleProps) {
     const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
-    const isUploading = message.attachments?.some((a) => a.url === 'uploading');
-
-    const uploadProgress = typeof message.uploadProgress === 'number' ? message.uploadProgress : 0;
-    const uploadEtaSeconds = message.uploadEtaSeconds ?? null;
-    const isFinishing = isUploading && uploadProgress >= 100;
+    const messageUploadProgress =
+        typeof message.uploadProgress === 'number' ? message.uploadProgress : 0;
+    const messageUploadEtaSeconds = message.uploadEtaSeconds ?? null;
 
     return (
-        <div className={cn('flex w-full mb-1', isSent ? 'justify-end' : 'justify-start')}>
+        <div className={cn('flex w-full', isSent ? 'justify-end' : 'justify-start')}>
             <div
                 className={cn(
-                    'max-w-[70%] rounded-lg px-3 py-2 shadow-sm',
+                    'max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-sm border border-black/5',
                     isSent
-                        ? 'bg-chat-sent text-gray-800 rounded-br-none'
-                        : 'bg-chat-received text-gray-800 rounded-bl-none',
+                        ? 'bg-chat-sent text-gray-900 rounded-br-md'
+                        : 'bg-chat-received text-gray-900 rounded-bl-md',
                 )}
             >
                 {/* Attachments */}
@@ -37,25 +35,39 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
                                 const imageUrl = attachment.url.startsWith('http')
                                     ? attachment.url
                                     : `${window.location.protocol}//${window.location.hostname}:4000${attachment.url}`;
+
+                                const attachmentUploadProgress =
+                                    typeof attachment.uploadProgress === 'number'
+                                        ? attachment.uploadProgress
+                                        : messageUploadProgress;
+                                const attachmentUploadEtaSeconds =
+                                    attachment.uploadEtaSeconds ?? messageUploadEtaSeconds;
+                                const isFinishing =
+                                    attachment.url === 'uploading' &&
+                                    attachmentUploadProgress >= 100;
+
                                 return (
-                                    <div key={attachment.id} className="rounded-lg overflow-hidden">
-                                        {attachment.mime_type.startsWith('image/') ? (
-                                            attachment.url === 'uploading' ? (
-                                                <UploadingPlaceholder
-                                                    progress={isFinishing ? 100 : uploadProgress}
-                                                    estimatedTime={
-                                                        isFinishing ? null : uploadEtaSeconds
-                                                    }
-                                                    statusText={
-                                                        isFinishing ? 'Finishing…' : undefined
-                                                    }
-                                                />
-                                            ) : (
+                                    <div key={attachment.id} className="rounded-xl overflow-hidden">
+                                        {attachment.url === 'uploading' ? (
+                                            <UploadingPlaceholder
+                                                progress={
+                                                    isFinishing ? 100 : attachmentUploadProgress
+                                                }
+                                                estimatedTime={
+                                                    isFinishing ? null : attachmentUploadEtaSeconds
+                                                }
+                                                statusText={isFinishing ? 'Finishing…' : undefined}
+                                            />
+                                        ) : attachment.mime_type.startsWith('image/') ? (
+                                            <div className="w-full h-60 bg-black/5">
                                                 <img
                                                     src={imageUrl}
                                                     alt={attachment.file_name}
-                                                    className="max-w-full max-h-64 object-cover cursor-pointer hover:opacity-90"
+                                                    className="w-full h-full object-contain cursor-pointer hover:opacity-95 transition-opacity"
                                                     loading="lazy"
+                                                    onLoad={() => {
+                                                        onMediaLoad?.();
+                                                    }}
                                                     onError={(e) => {
                                                         console.error(
                                                             'Image load error:',
@@ -71,13 +83,13 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
                                                         })
                                                     }
                                                 />
-                                            )
+                                            </div>
                                         ) : (
                                             <a
                                                 href={imageUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-2 bg-black/10 p-2 rounded hover:bg-black/20 transition-colors"
+                                                className="flex items-center gap-3 bg-black/5 p-2.5 rounded-lg hover:bg-black/10 transition-colors"
                                             >
                                                 <span className="text-2xl">📄</span>
                                                 <div className="overflow-hidden">
@@ -96,7 +108,7 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
                             })}
                         </div>
                         {message.content && message.content.trim() && (
-                            <div className="text-[15px] leading-relaxed break-words whitespace-pre-wrap">
+                            <div className="text-[15px] leading-relaxed wrap-break-word whitespace-pre-wrap">
                                 {message.content}
                             </div>
                         )}
@@ -104,18 +116,18 @@ export function MessageBubble({ message, isSent }: MessageBubbleProps) {
                 )}
 
                 {message.content && message.content.trim() && !message.attachments?.length && (
-                    <div className="text-[15px] leading-relaxed break-words whitespace-pre-wrap">
+                    <div className="text-[15px] leading-relaxed wrap-break-words whitespace-pre-wrap">
                         {message.content}
                     </div>
                 )}
-                <div className="flex items-center justify-end gap-1 mt-1">
-                    <span className="text-[11px] text-gray-500">
+                <div className="flex items-center justify-end gap-1 mt-1.5">
+                    <span className="text-[11px] text-gray-500 select-none">
                         {formatMessageTime(message.createdAt || message.timestamp!)}
                     </span>
                     {isSent && (
                         <span
                             className={cn(
-                                'text-sm',
+                                'text-sm select-none',
                                 message.status === MessageStatus.READ
                                     ? 'text-blue-500'
                                     : 'text-gray-400',

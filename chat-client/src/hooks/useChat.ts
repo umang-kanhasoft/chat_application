@@ -1,20 +1,52 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CONFIG } from '../constants/config';
 import { wsService } from '../services/websocket.service';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
-import { SocketEventType, MessageStatus, type Message, type Attachment } from '../types/chat.types';
-import { CONFIG } from '../constants/config';
+import { MessageStatus, SocketEventType, type Attachment, type Message } from '../types/chat.types';
+
+type InitialTopMostItemIndex =
+    | number
+    | {
+          index: number;
+          align: 'start' | 'end';
+      }
+    | null;
 
 export function useChat() {
     const [messages, setMessages] = useState<Message[] | []>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyTotalPages, setHistoryTotalPages] = useState(1);
+    const [firstItemIndex, setFirstItemIndex] = useState(1000000);
+    const [forceScrollToBottomToken, setForceScrollToBottomToken] = useState(0);
+    const [initialTopMostItemIndex, setInitialTopMostItemIndex] =
+        useState<InitialTopMostItemIndex>(null);
+    const [unreadAnchorMessageId, setUnreadAnchorMessageId] = useState<string | null>(null);
     const { currentUserId } = useAuthStore();
     const { selectedProjectId, selectedUserId, clearUnreadCount, incrementUnreadCount } =
         useChatStore();
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const loadingMoreStartedAtRef = useRef<number | null>(null);
+    const messagesRef = useRef<Message[]>([]);
+
+    const HISTORY_PAGE_SIZE = 50;
+    const INITIAL_FIRST_ITEM_INDEX = 1000000;
+    const MIN_LOADING_MORE_MS = 50;
+    const UNREAD_CONTEXT_BEFORE_COUNT = 8;
+
+    useEffect(() => {
+        messagesRef.current = messages as Message[];
+    }, [messages]);
 
     const updateUploadProgress = useCallback(
-        (clientMsgId: string, progress: number, etaSeconds: number | null) => {
+        (
+            clientMsgId: string,
+            attachmentId: string,
+            progress: number,
+            etaSeconds: number | null,
+        ) => {
             setMessages((prev) => {
                 const index = prev.findIndex(
                     (m) => m.clientMsgId === clientMsgId || m.id === clientMsgId,
@@ -22,10 +54,26 @@ export function useChat() {
                 if (index === -1) return prev;
 
                 const next = [...prev];
+                const msg = next[index];
+                const attachments = msg.attachments;
+                if (!attachments || attachments.length === 0) {
+                    next[index] = {
+                        ...msg,
+                        uploadProgress: progress,
+                        uploadEtaSeconds: etaSeconds,
+                    };
+                    return next;
+                }
+
+                const updatedAttachments = attachments.map((a) =>
+                    a.id === attachmentId
+                        ? { ...a, uploadProgress: progress, uploadEtaSeconds: etaSeconds }
+                        : a,
+                );
+
                 next[index] = {
-                    ...next[index],
-                    uploadProgress: progress,
-                    uploadEtaSeconds: etaSeconds,
+                    ...msg,
+                    attachments: updatedAttachments,
                 };
                 return next;
             });
@@ -51,6 +99,7 @@ export function useChat() {
             const trimmedContent = content.trim();
 
             // Create or update optimistic message (so loader stays visible during upload)
+            let didAppendNew = false;
             setMessages((prev) => {
                 const index = prev.findIndex(
                     (m) => m.clientMsgId === clientMsgId || m.id === clientMsgId,
@@ -80,8 +129,15 @@ export function useChat() {
                     status: MessageStatus.PENDING,
                     attachments: attachments ? (attachments as Attachment[]) : undefined,
                 };
+                didAppendNew = true;
                 return [...prev, optimisticMessage];
             });
+
+            // When the local user sends a message, always jump to the bottom.
+            // This mimics WhatsApp/Telegram behavior.
+            if (didAppendNew) {
+                setForceScrollToBottomToken((t) => t + 1);
+            }
 
             const hasUploadingPlaceholder =
                 !!attachments && (attachments as Attachment[]).some((a) => a?.url === 'uploading');
@@ -108,26 +164,72 @@ export function useChat() {
         [currentUserId, selectedUserId, selectedProjectId],
     );
 
-    // Load message history
+    const requestMessageHistory = useCallback(
+        (page: number) => {
+            if (!currentUserId || !selectedProjectId || !selectedUserId) {
+                return;
+            }
+
+            wsService.send({
+                type: SocketEventType.MESSAGE_HISTORY,
+                payload: {
+                    projectId: selectedProjectId,
+                    receiverId: selectedUserId,
+                    page,
+                    limit: HISTORY_PAGE_SIZE,
+                },
+            });
+        },
+        [currentUserId, selectedProjectId, selectedUserId],
+    );
+
+    // Load latest message history page (bottom of chat)
     const loadMessageHistory = useCallback(() => {
         if (!currentUserId || !selectedProjectId || !selectedUserId) {
             return;
         }
 
         setIsLoadingHistory(true);
-        wsService.send({
-            type: SocketEventType.MESSAGE_HISTORY,
-            payload: {
-                projectId: selectedProjectId,
-                receiverId: selectedUserId,
-            },
-        });
-    }, [currentUserId, selectedProjectId, selectedUserId]);
+        setIsLoadingMoreHistory(false);
+        setHistoryPage(1);
+        setHistoryTotalPages(1);
+        setFirstItemIndex(INITIAL_FIRST_ITEM_INDEX);
+        setInitialTopMostItemIndex(null);
+        setUnreadAnchorMessageId(null);
+        setMessages([]);
+        requestMessageHistory(1);
+    }, [currentUserId, selectedProjectId, selectedUserId, requestMessageHistory]);
+
+    const loadOlderMessages = useCallback(() => {
+        if (isLoadingHistory || isLoadingMoreHistory) return;
+        if (!selectedUserId || !selectedProjectId || !currentUserId) return;
+        if (historyPage >= historyTotalPages) return;
+
+        setIsLoadingMoreHistory(true);
+        loadingMoreStartedAtRef.current = Date.now();
+        requestMessageHistory(historyPage + 1);
+    }, [
+        isLoadingHistory,
+        isLoadingMoreHistory,
+        selectedUserId,
+        selectedProjectId,
+        currentUserId,
+        historyPage,
+        historyTotalPages,
+        requestMessageHistory,
+    ]);
 
     // Mark messages as read
     const markMessagesAsRead = useCallback(
         (messageIds: string[]) => {
             if (!currentUserId || messageIds.length === 0) {
+                return;
+            }
+
+            const uuidRegex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const safeMessageIds = messageIds.filter((id) => uuidRegex.test(id));
+            if (safeMessageIds.length === 0) {
                 return;
             }
 
@@ -140,7 +242,7 @@ export function useChat() {
 
             wsService.send({
                 type: SocketEventType.MARK_AS_READ,
-                payload: { messageIds },
+                payload: { messageIds: safeMessageIds },
             });
         },
         [currentUserId],
@@ -172,25 +274,11 @@ export function useChat() {
         }, CONFIG.CHAT.TYPING_TIMEOUT);
     }, [selectedProjectId, selectedUserId]);
 
-    // Stop typing indicator
-    const stopTypingIndicator = useCallback(() => {
-        if (!selectedProjectId) {
-            return;
-        }
-
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = null;
-        }
-
-        wsService.send({
-            type: SocketEventType.TYPING_STOP,
-            payload: { projectId: selectedProjectId },
-        });
-    }, [selectedProjectId]);
-
     // Set up message event handlers
     useEffect(() => {
+        const uuidRegex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
         // Message received handler
         const unsubMessageReceived = wsService.on(SocketEventType.MESSAGE_RECEIVED, (message) => {
             const msg: Message = message.payload;
@@ -215,7 +303,11 @@ export function useChat() {
                 ) {
                     // Message doesn't belong to current chat, handle unread count and return
                     if (!isSentByMe) {
-                        incrementUnreadCount(msg.sender_id);
+                        // Avoid double counts: server may emit provisional (clientMsgId) + final (UUID).
+                        // Only count the persisted message (UUID id).
+                        if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
+                            incrementUnreadCount(msg.sender_id);
+                        }
                     }
                     return;
                 }
@@ -256,19 +348,86 @@ export function useChat() {
             // Handle unread count and read marking for active conversation
             if (isFromSelectedUser && msg.receiver_id === currentUserId) {
                 // Message from selected user - mark as read instantly
-                markMessagesAsRead([msg.id]);
+                if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
+                    markMessagesAsRead([msg.id]);
+                }
             } else if (!isSentByMe) {
                 // Message from different user (not the one we are chatting with) - increment unread
                 // This part is technically redundant due to the check above but kept for safety
-                incrementUnreadCount(msg.sender_id);
+                if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
+                    incrementUnreadCount(msg.sender_id);
+                }
             }
         });
 
         // Message history handler
         const unsubMessageHistory = wsService.on(SocketEventType.MESSAGE_HISTORY, (message) => {
             const history: Message[] = message.payload.messages || [];
-            setMessages(history);
-            setIsLoadingHistory(false);
+            const page = Number(message.payload.page || 1);
+            const totalPages = Number(message.payload.totalPages || 1);
+
+            setHistoryPage(page);
+            setHistoryTotalPages(totalPages);
+
+            if (page <= 1) {
+                const nextFirstItemIndex = INITIAL_FIRST_ITEM_INDEX - history.length;
+                setFirstItemIndex(nextFirstItemIndex);
+
+                if (history.length > 0 && selectedUserId) {
+                    const firstUnreadLocalIndex = history.findIndex(
+                        (msg) =>
+                            msg.sender_id === selectedUserId && msg.status !== MessageStatus.READ,
+                    );
+
+                    if (firstUnreadLocalIndex >= 0) {
+                        setUnreadAnchorMessageId(history[firstUnreadLocalIndex]?.id ?? null);
+
+                        const contextStartLocalIndex = Math.max(
+                            0,
+                            firstUnreadLocalIndex - UNREAD_CONTEXT_BEFORE_COUNT,
+                        );
+                        setInitialTopMostItemIndex({
+                            index: nextFirstItemIndex + contextStartLocalIndex,
+                            align: 'start',
+                        });
+                    } else {
+                        setUnreadAnchorMessageId(null);
+                        setInitialTopMostItemIndex({
+                            index: nextFirstItemIndex + history.length - 1,
+                            align: 'end',
+                        });
+                    }
+                } else {
+                    setUnreadAnchorMessageId(null);
+                    setInitialTopMostItemIndex(null);
+                }
+
+                setMessages(history);
+
+                setIsLoadingHistory(false);
+                setIsLoadingMoreHistory(false);
+                loadingMoreStartedAtRef.current = null;
+            } else {
+                const existing = new Set((messagesRef.current || []).map((m) => m.id));
+                const uniqueOlder = history.filter((m) => !existing.has(m.id));
+
+                if (uniqueOlder.length > 0) {
+                    // Important: update firstItemIndex and messages in the same tick (no nested setState)
+                    // so Virtuoso can preserve scroll position perfectly while prepending.
+                    setFirstItemIndex((idx) => idx - uniqueOlder.length);
+                    setMessages((prev) => [...uniqueOlder, ...prev]);
+                }
+
+                const startedAt = loadingMoreStartedAtRef.current;
+                const elapsed = typeof startedAt === 'number' ? Date.now() - startedAt : 0;
+                const remaining = MIN_LOADING_MORE_MS - elapsed;
+                if (remaining > 0) {
+                    setTimeout(() => setIsLoadingMoreHistory(false), remaining);
+                } else {
+                    setIsLoadingMoreHistory(false);
+                }
+                loadingMoreStartedAtRef.current = null;
+            }
 
             // Mark unread messages as read
             const unreadMessageIds = history
@@ -332,16 +491,9 @@ export function useChat() {
     // Load history when selected user changes
     useEffect(() => {
         if (selectedUserId && selectedProjectId && currentUserId) {
-            wsService.send({
-                type: SocketEventType.MESSAGE_HISTORY,
-                payload: {
-                    projectId: selectedProjectId,
-                    receiverId: selectedUserId,
-                },
-            });
-            // setIsLoadingHistory(true);
+            loadMessageHistory();
         }
-    }, [selectedUserId, selectedProjectId, currentUserId]);
+    }, [selectedUserId, selectedProjectId, currentUserId, loadMessageHistory]);
 
     // Mark messages as read when window gains focus
     useEffect(() => {
@@ -361,7 +513,7 @@ export function useChat() {
         return () => window.removeEventListener('focus', handleFocus);
     }, [messages, selectedUserId, markMessagesAsRead]);
 
-    // Cleanup typing timeout on unmount
+    // Cleanup
     useEffect(() => {
         return () => {
             if (typingTimeoutRef.current) {
@@ -374,10 +526,14 @@ export function useChat() {
         messages,
         sendMessage,
         updateUploadProgress,
-        loadMessageHistory,
-        markMessagesAsRead,
         sendTypingIndicator,
-        stopTypingIndicator,
         isLoadingHistory,
+        isLoadingMoreHistory,
+        loadOlderMessages,
+        hasMoreHistory: historyPage < historyTotalPages,
+        firstItemIndex,
+        forceScrollToBottomToken,
+        initialTopMostItemIndex,
+        unreadAnchorMessageId,
     };
 }

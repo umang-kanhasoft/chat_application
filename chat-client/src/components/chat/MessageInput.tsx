@@ -6,53 +6,124 @@ import { FilePreview } from './FilePreview';
 
 interface MessageInputProps {
     onSendMessage: (content: string, attachments?: Attachment[], tempId?: string) => void;
-    onUploadProgress?: (clientMsgId: string, progress: number, etaSeconds: number | null) => void;
+    onUploadProgress?: (
+        clientMsgId: string,
+        attachmentId: string,
+        progress: number,
+        etaSeconds: number | null,
+    ) => void;
     onTyping: (isTyping: boolean) => void;
     disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage, onUploadProgress, onTyping, disabled }: MessageInputProps) {
+export function MessageInput({
+    onSendMessage,
+    onUploadProgress,
+    onTyping,
+    disabled,
+}: MessageInputProps) {
     const [message, setMessage] = useState('');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<
+        Array<{
+            id: string;
+            file: File;
+            progress: number;
+            etaSeconds: number | null;
+            error?: string;
+        }>
+    >([]);
+    const [isUploadingBatch, setIsUploadingBatch] = useState(false);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const {
-        isUploading,
-        uploadProgress,
-        uploadFile,
-        error: uploadError,
-        reset: resetUpload,
-    } = useFileUpload();
+    const { uploadFile } = useFileUpload();
 
     const handleSend = async () => {
-        if (!message.trim() && !selectedFile) return;
+        if (!message.trim() && selectedFiles.length === 0) return;
         if (disabled) return;
+        if (isUploadingBatch) return;
 
-        if (selectedFile) {
+        if (selectedFiles.length > 0) {
             const tempId = `temp_${Date.now()}`;
-            const tempAttachment: Attachment = {
-                id: tempId,
-                file_name: selectedFile.name,
-                file_size: selectedFile.size,
-                mime_type: selectedFile.type,
-                url: 'uploading',
-            };
-            
             const messageContent = message;
-            onSendMessage(messageContent, [tempAttachment], tempId);
-            setMessage('');
-            const fileToUpload = selectedFile;
-            setSelectedFile(null);
-            onTyping(false);
 
-            // Upload in background and send real attachment
-            const uploaded = await uploadFile(fileToUpload, (progress, etaSeconds) => {
-                onUploadProgress?.(tempId, progress, etaSeconds);
+            const queue = selectedFiles.map((sf) => {
+                const tempAttachment: Attachment = {
+                    id: sf.id,
+                    file_name: sf.file.name,
+                    file_size: sf.file.size,
+                    mime_type: sf.file.type,
+                    url: 'uploading',
+                    uploadProgress: 0,
+                    uploadEtaSeconds: null,
+                };
+                return { ...sf, tempAttachment };
             });
-            if (uploaded) {
-                onSendMessage(messageContent, [uploaded], tempId);
-            }
+
+            onSendMessage(
+                messageContent,
+                queue.map((q) => q.tempAttachment),
+                tempId,
+            );
+
+            setMessage('');
+            onTyping(false);
+            setIsUploadingBatch(true);
+
+            let finalAttachments: Attachment[] = [...queue.map((q) => q.tempAttachment)];
+
+            const updateFinalAttachments = (
+                attachmentId: string,
+                attachment: Attachment | null,
+            ) => {
+                const idx = finalAttachments.findIndex((a) => a.id === attachmentId);
+                if (attachment) {
+                    if (idx > -1) {
+                        finalAttachments = finalAttachments.map((a) =>
+                            a.id === attachmentId ? attachment : a,
+                        );
+                    } else {
+                        finalAttachments = [...finalAttachments, attachment];
+                    }
+                } else {
+                    if (idx > -1) {
+                        finalAttachments = finalAttachments.filter((a) => a.id !== attachmentId);
+                    }
+                }
+
+                onSendMessage(messageContent, [...finalAttachments], tempId);
+            };
+
+            const uploadOne = async (item: (typeof queue)[number]) => {
+                const uploaded = await uploadFile(item.file, (progress, etaSeconds) => {
+                    onUploadProgress?.(tempId, item.id, progress, etaSeconds);
+                    setSelectedFiles((prev) =>
+                        prev.map((sf) =>
+                            sf.id === item.id ? { ...sf, progress, etaSeconds } : sf,
+                        ),
+                    );
+                });
+
+                const fixedUploaded = uploaded ? { ...uploaded, id: item.id } : null;
+                updateFinalAttachments(item.id, fixedUploaded);
+            };
+
+            const concurrency = 3;
+            let nextIndex = 0;
+            const worker = async () => {
+                while (nextIndex < queue.length) {
+                    const idx = nextIndex;
+                    nextIndex += 1;
+                    await uploadOne(queue[idx]);
+                }
+            };
+
+            await Promise.all(
+                Array.from({ length: Math.min(concurrency, queue.length) }, () => worker()),
+            );
+
+            setSelectedFiles([]);
+            setIsUploadingBatch(false);
         } else {
             onSendMessage(message);
             setMessage('');
@@ -65,17 +136,24 @@ export function MessageInput({ onSendMessage, onUploadProgress, onTyping, disabl
     };
 
     const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const picked = Array.from(e.target.files);
+        setSelectedFiles((prev) => {
+            const next = [...prev];
+            for (const file of picked) {
+                next.push({ id: crypto.randomUUID(), file, progress: 0, etaSeconds: null });
+            }
+            return next;
+        });
+
+        // Allow picking the same file again
+        e.target.value = '';
     };
 
-    const handleRemoveFile = () => {
-        setSelectedFile(null);
-        resetUpload();
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+    const handleRemoveFile = (id: string) => {
+        if (isUploadingBatch) return;
+        setSelectedFiles((prev) => prev.filter((f) => f.id !== id));
     };
 
     const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -103,14 +181,18 @@ export function MessageInput({ onSendMessage, onUploadProgress, onTyping, disabl
 
     return (
         <div className="p-4 bg-white border-t border-gray-200">
-            {selectedFile && (
+            {selectedFiles.length > 0 && (
                 <div className="mb-2">
-                    <FilePreview
-                        file={selectedFile}
-                        progress={uploadProgress}
-                        onRemove={handleRemoveFile}
-                    />
-                    {uploadError && <div className="text-red-500 text-xs mt-1">{uploadError}</div>}
+                    <div className="flex flex-wrap">
+                        {selectedFiles.map((sf) => (
+                            <FilePreview
+                                key={sf.id}
+                                file={sf.file}
+                                progress={sf.progress}
+                                onRemove={() => handleRemoveFile(sf.id)}
+                            />
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -120,14 +202,15 @@ export function MessageInput({ onSendMessage, onUploadProgress, onTyping, disabl
                     ref={fileInputRef}
                     onChange={handleFileSelect}
                     className="hidden"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    accept="*/*"
                 />
 
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                    disabled={disabled || isUploading}
+                    disabled={disabled || isUploadingBatch}
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -149,14 +232,16 @@ export function MessageInput({ onSendMessage, onUploadProgress, onTyping, disabl
                     value={message}
                     onChange={handleChange}
                     onKeyDown={handleKeyPress}
-                    placeholder={selectedFile ? 'Add a caption...' : 'Type a message...'}
+                    placeholder={
+                        selectedFiles.length > 0 ? 'Add a caption...' : 'Type a message...'
+                    }
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    disabled={disabled || isUploading}
+                    disabled={disabled || isUploadingBatch}
                 />
 
                 <Button
                     onClick={handleSend}
-                    disabled={(!message.trim() && !selectedFile) || isUploading}
+                    disabled={(!message.trim() && selectedFiles.length === 0) || isUploadingBatch}
                     isLoading={false}
                 >
                     <svg

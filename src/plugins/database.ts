@@ -24,6 +24,10 @@ const databasePlugin: FastifyPluginAsync = async (fastify) => {
             sequelize,
             models,
         });
+
+        sequelize.addHook('afterConnect', () => {
+            fastify.log.info('Database pool connection established');
+        });
     } catch (error) {
         if (typeof error === 'string') {
             fastify.log.error('Unable to connect to the database:', error as never);

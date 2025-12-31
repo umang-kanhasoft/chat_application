@@ -13,8 +13,14 @@ export function ChatArea() {
         sendMessage,
         updateUploadProgress,
         sendTypingIndicator,
-        // stopTypingIndicator,
         isLoadingHistory,
+        isLoadingMoreHistory,
+        loadOlderMessages,
+        hasMoreHistory,
+        firstItemIndex,
+        forceScrollToBottomToken,
+        initialTopMostItemIndex,
+        unreadAnchorMessageId,
     } = useChat();
 
     if (!selectedUserId) {
@@ -26,15 +32,25 @@ export function ChatArea() {
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-chat-bg">
+        <div className="flex-1 flex flex-col bg-chat-bg min-h-0">
             <ChatHeader />
-            <MessageList messages={messages} isLoading={isLoadingHistory} />
+            <MessageList
+                key={selectedUserId}
+                messages={messages}
+                isLoading={isLoadingHistory}
+                isLoadingMore={isLoadingMoreHistory}
+                hasMore={hasMoreHistory}
+                firstItemIndex={firstItemIndex}
+                onLoadOlder={loadOlderMessages}
+                forceScrollToBottomToken={forceScrollToBottomToken}
+                initialTopMostItemIndex={initialTopMostItemIndex}
+                unreadAnchorMessageId={unreadAnchorMessageId}
+            />
             <TypingIndicator />
             <MessageInput
                 onSendMessage={sendMessage}
                 onUploadProgress={updateUploadProgress}
                 onTyping={sendTypingIndicator}
-                // onStopTyping={stopTypingIndicator}
                 disabled={!selectedUserId}
             />
         </div>

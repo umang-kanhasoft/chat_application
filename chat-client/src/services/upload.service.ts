@@ -46,7 +46,7 @@ export class UploadService {
             formData.append('folder', sign.folder);
             formData.append('signature', sign.signature);
 
-            const uploadUrl = `https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`;
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${sign.cloudName}/auto/upload`;
             const { data } = await axios.post(uploadUrl, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',

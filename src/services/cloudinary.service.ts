@@ -1,5 +1,8 @@
-import cloudinary from '../config/cloudinary';
 import { Readable } from 'stream';
+import cloudinary from '../config/cloudinary';
+import { getLogger } from '../config/logger';
+
+const log = getLogger('cloudinary');
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -70,7 +73,7 @@ export class CloudinaryService {
         try {
             await cloudinary.uploader.destroy(publicId);
         } catch (error) {
-            console.error('Failed to delete image from Cloudinary:', error);
+            log.error({ err: error, publicId }, 'Failed to delete image from Cloudinary');
             throw error;
         }
     }

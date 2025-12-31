@@ -1,41 +1,52 @@
-import { useState } from 'react';
-import { Input } from '../ui/Input';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui/Button';
 import { useWebSocket } from '../../hooks/useWebSocket';
 
-const getDefaultUserId = () => {
-    const port = window.location.port;
-
-    if (port === '5173') {
-        return 'c1000000-1111-4aaa-9aaa-000000000001';
-    }
-
-    if (port === '5174') {
-        return 'f2000000-0001-4bbb-8bbb-000000000001';
-    }
-
-    return '';
-};
-
 export function AuthScreen() {
-    const [userId, setUserId] = useState(getDefaultUserId);
     const [error, setError] = useState('');
     const { connect, isConnecting } = useWebSocket();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const { oauthUserId, oauthError } = useMemo(() => {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            oauthUserId: params.get('userId')?.trim() || '',
+            oauthError: params.get('oauthError')?.trim() || '',
+        };
+    }, []);
 
-        if (!userId.trim()) {
-            setError('Please enter your User ID');
+    useEffect(() => {
+        if (oauthError) {
+            setError(oauthError);
+            window.history.replaceState({}, '', window.location.pathname);
             return;
         }
 
+        if (!oauthUserId) return;
+
+        const run = async () => {
+            setError('');
+            try {
+                await connect(oauthUserId);
+            } catch {
+                setError('Failed to connect. Please try again.');
+            } finally {
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        };
+
+        void run();
+    }, [oauthUserId, oauthError, connect]);
+
+    const getApiBaseUrl = () => {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        const port = import.meta.env.VITE_API_PORT || '4000';
+        return `${protocol}//${hostname}:${port}`;
+    };
+
+    const handleGoogleLogin = () => {
         setError('');
-        try {
-            await connect(userId.trim());
-        } catch {
-            setError('Failed to connect. Please try again.');
-        }
+        window.location.href = `${getApiBaseUrl()}/auth/google`;
     };
 
     return (
@@ -48,31 +59,23 @@ export function AuthScreen() {
                     <p className="text-gray-600">Connect to start messaging</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <Input
-                        label="User ID"
-                        type="text"
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
-                        defaultValue={'c1000000-1111-4aaa-9aaa-000000000001'}
-                        placeholder="c1000000-1111-4aaa-9aaa-000000000001"
-                        error={error}
-                        disabled={isConnecting}
-                    />
+                <div className="space-y-5">
+                    {error ? <div className="text-sm text-red-600 text-center">{error}</div> : null}
 
                     <Button
-                        type="submit"
+                        type="button"
                         variant="primary"
                         size="lg"
                         isLoading={isConnecting}
                         className="w-full"
+                        onClick={handleGoogleLogin}
                     >
-                        {isConnecting ? 'Connecting...' : 'Connect'}
+                        {isConnecting ? 'Connecting...' : 'Continue with Google'}
                     </Button>
-                </form>
+                </div>
 
                 <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>Enter your user ID to access the chat</p>
+                    <p>Sign in to access the chat</p>
                 </div>
             </div>
         </div>

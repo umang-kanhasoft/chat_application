@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import socketio from 'fastify-socket.io';
 import { Server } from 'socket.io';
+import { config } from '../config/config';
 import socketManager from '../services/socket.manager';
 import { AuthenticatedSocket } from '../types/socket.types';
 
@@ -11,20 +12,30 @@ declare module 'fastify' {
 }
 
 export default fp(async (fastify) => {
+    const normalizeOrigin = (value: string) => value.trim().replace(/\/$/, '');
+
+    const raw = config.cors.corsOrigin;
+    const allowList = new Set(raw.split(',').map(normalizeOrigin).filter(Boolean));
+
     await fastify.register(socketio, {
         cors: {
-            origin: [
-                'http://localhost:5173',
-                'http://localhost:5174',
-                'http://localhost:5175',
-                'http://localhost:3000',
-                'http://127.0.0.1:5173',
-            ],
+            origin: (origin, cb) => {
+                if (!origin) return cb(null, true);
+
+                const normalized = normalizeOrigin(origin);
+                const allowed = allowList.size === 0 ? true : allowList.has(normalized);
+                if (!allowed) {
+                    fastify.log.warn(
+                        { origin: normalized, allowList: Array.from(allowList) },
+                        'Socket.IO CORS blocked origin',
+                    );
+                }
+                return cb(null, allowed);
+            },
             methods: ['GET', 'POST'],
             credentials: true,
             allowedHeaders: ['*'],
         },
-
         transports: ['websocket', 'polling'],
         maxHttpBufferSize: 500 * 1024 * 1024,
         pingTimeout: 60000,

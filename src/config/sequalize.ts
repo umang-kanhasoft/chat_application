@@ -1,5 +1,8 @@
 import { Sequelize } from 'sequelize';
 import { config } from './config';
+import { getLogger } from './logger';
+
+const log = getLogger('sequelize');
 
 const sequelize = new Sequelize({
     dialect: 'postgres',
@@ -8,9 +11,28 @@ const sequelize = new Sequelize({
     database: config.postgres.name,
     username: config.postgres.user,
     password: config.postgres.password,
-    logging: (msg) => {
-        if (msg.includes('ERROR')) console.log(msg);
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false,
+        },
     },
+    pool: {
+        max: 25,
+        min: 5,
+        acquire: 30000,
+        idle: 10000,
+    },
+    logging:
+        config.environment === 'production'
+            ? false
+            : (msg) => {
+                  if (typeof msg === 'string' && msg.toUpperCase().includes('ERROR')) {
+                      log.error({ msg }, 'Sequelize');
+                      return;
+                  }
+                  log.debug({ msg }, 'Sequelize');
+              },
 });
 
 export default sequelize;

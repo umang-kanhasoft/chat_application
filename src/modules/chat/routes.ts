@@ -1,7 +1,7 @@
 import multipart from '@fastify/multipart';
 import { FastifyPluginAsync } from 'fastify';
-import { config } from '../../config/config';
 import cloudinary from '../../config/cloudinary';
+import { config } from '../../config/config';
 import { cloudinaryService } from '../../services/cloudinary.service';
 
 const chatRoutes: FastifyPluginAsync = async (fastify) => {
@@ -35,7 +35,7 @@ const chatRoutes: FastifyPluginAsync = async (fastify) => {
                 mimeType: result.mimeType,
             };
         } catch (error) {
-            console.error('Upload error:', error);
+            request.log.error({ err: error }, 'Upload error');
             const message = error instanceof Error ? error.message : 'Upload failed';
             return reply.code(500).send({ error: message });
         }

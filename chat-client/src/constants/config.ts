@@ -1,5 +1,21 @@
 export const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:4000';
 
+export const WEBRTC_ICE_SERVERS: RTCIceServer[] = (() => {
+    const raw = import.meta.env.VITE_WEBRTC_ICE_SERVERS as string | undefined;
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                return parsed as RTCIceServer[];
+            }
+        } catch {
+            return [{ urls: ['stun:stun.l.google.com:19302'] }];
+        }
+    }
+
+    return [{ urls: ['stun:stun.l.google.com:19302'] }];
+})();
+
 export const CONFIG = {
     // WebSocket configuration
     WS: {

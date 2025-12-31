@@ -1,13 +1,19 @@
 import { Op } from 'sequelize';
+import { getLogger } from '../config/logger';
 import Attachment from '../models/Attachment';
 import Bid from '../models/Bid';
 import Message, { MESSAGE_STATUS } from '../models/Message';
 import Project from '../models/Project';
 import User from '../models/User';
+import cacheService from './cache.service';
+
+const log = getLogger('chat.service');
 
 export class ChatService {
     private clientMsgIdToMessageId = new Map<string, { messageId: string; ts: number }>();
     private readonly clientMsgIdTtlMs = 6 * 60 * 60 * 1000;
+    private lastClientMsgIdCleanupAt = 0;
+    private readonly clientMsgIdCleanupIntervalMs = 60 * 1000;
 
     private cleanupClientMsgIdMap() {
         const now = Date.now();
@@ -18,6 +24,13 @@ export class ChatService {
         }
     }
 
+    private maybeCleanupClientMsgIdMap() {
+        const now = Date.now();
+        if (now - this.lastClientMsgIdCleanupAt < this.clientMsgIdCleanupIntervalMs) return;
+        this.lastClientMsgIdCleanupAt = now;
+        this.cleanupClientMsgIdMap();
+    }
+
     async sendMessage(
         sender_id: string,
         receiver_id: string,
@@ -26,9 +39,10 @@ export class ChatService {
         attachments?: any[],
         clientMsgId?: string,
         isReceiverOnline?: boolean,
+        senderName?: string,
     ) {
         try {
-            this.cleanupClientMsgIdMap();
+            this.maybeCleanupClientMsgIdMap();
 
             let message: any = null;
             if (clientMsgId) {
@@ -60,26 +74,35 @@ export class ChatService {
                 }
             } else {
                 if (content && message.content !== content) {
-                    await message.update({ content });
+                    void message.update({ content });
                 }
             }
 
             const responseAttachments: any[] = [];
-            const uploadingAttachments: any[] = [];
+            const inputAttachments = Array.isArray(attachments) ? attachments : [];
 
-            if (attachments && attachments.length > 0) {
-                for (const att of attachments) {
-                    if (att?.url === 'uploading') {
-                        uploadingAttachments.push(att);
-                        continue;
-                    }
+            // Persist non-uploading attachments (if any) with batched lookups/inserts
+            const toPersist = inputAttachments.filter(
+                (att) => att?.url && att?.url !== 'uploading',
+            );
+            if (toPersist.length > 0) {
+                const publicIds = toPersist.map((a) => a?.public_id).filter(Boolean);
+                if (publicIds.length > 0) {
+                    const existing = await Attachment.findAll({
+                        where: {
+                            message_id: message.id,
+                            public_id: { [Op.in]: publicIds },
+                        },
+                        attributes: ['public_id'],
+                    });
+                    const existingSet = new Set((existing as any[]).map((e) => e.public_id));
+                    const missing = toPersist.filter(
+                        (a) => a?.public_id && !existingSet.has(a.public_id),
+                    );
 
-                    if (att?.public_id && att?.url) {
-                        const existingAttachment = await Attachment.findOne({
-                            where: { message_id: message.id, public_id: att.public_id },
-                        });
-                        if (!existingAttachment) {
-                            await Attachment.create({
+                    if (missing.length > 0) {
+                        await Attachment.bulkCreate(
+                            missing.map((att) => ({
                                 message_id: message.id,
                                 file_name: att.file_name,
                                 file_size: att.file_size,
@@ -88,45 +111,43 @@ export class ChatService {
                                 public_id: att.public_id,
                                 url: att.url,
                                 checksum: att.checksum || '',
-                            });
-                        }
+                            })),
+                        );
                     }
                 }
             }
 
-            const savedAttachments = await Attachment.findAll({
-                where: { message_id: message.id },
-            });
-            for (const att of savedAttachments as any[]) {
-                responseAttachments.push({
-                    id: att.id,
-                    file_name: att.file_name,
-                    file_size: att.file_size,
-                    mime_type: att.mime_type,
-                    url: att.url,
-                    public_id: att.public_id,
-                });
+            // Build attachment payload from input to avoid extra DB reads on the hot path.
+            for (const att of inputAttachments) {
+                if (att?.url === 'uploading') {
+                    responseAttachments.push({
+                        id: att.id || att.storage_key || 'uploading',
+                        file_name: att.file_name,
+                        file_size: att.file_size,
+                        mime_type: att.mime_type,
+                        url: 'uploading',
+                        public_id: att.public_id,
+                    });
+                } else if (att?.url) {
+                    responseAttachments.push({
+                        id: att.id || att.storage_key || att.public_id,
+                        file_name: att.file_name,
+                        file_size: att.file_size,
+                        mime_type: att.mime_type,
+                        url: att.url,
+                        public_id: att.public_id,
+                    });
+                }
             }
 
-            for (const att of uploadingAttachments) {
-                responseAttachments.push({
-                    id: att.id || att.storage_key || 'uploading',
-                    file_name: att.file_name,
-                    file_size: att.file_size,
-                    mime_type: att.mime_type,
-                    url: 'uploading',
-                    public_id: att.public_id,
-                });
-            }
-
-            const sender = await User.findByPk(sender_id);
+            const sender = senderName ? null : await User.findByPk(sender_id);
 
             const payload: any = {
                 id: message.id,
                 clientMsgId: clientMsgId,
                 content: message.content,
                 sender_id: message.sender_id,
-                senderName: sender?.name,
+                senderName: senderName || sender?.name,
                 receiver_id: message.receiver_id,
                 projectId: message.project_id,
                 status: message.status,
@@ -135,13 +156,20 @@ export class ChatService {
             };
 
             if (isReceiverOnline && payload.status !== MESSAGE_STATUS.DELIVERED) {
-                await message.update({ status: MESSAGE_STATUS.DELIVERED });
+                // Persist delivered status without blocking message fanout.
+                void message.update({ status: MESSAGE_STATUS.DELIVERED });
                 payload.status = MESSAGE_STATUS.DELIVERED;
             }
 
+            await cacheService.invalidateChatCache(projectId, sender_id);
+            await cacheService.invalidateChatCache(projectId, receiver_id);
+
             return payload;
         } catch (error) {
-            console.error('Error in ChatService.sendMessage:', error);
+            log.error(
+                { err: error, sender_id, receiver_id, projectId, clientMsgId },
+                'Error in ChatService.sendMessage',
+            );
             throw error;
         }
     }
@@ -153,6 +181,11 @@ export class ChatService {
         page = 1,
         limit = 50,
     ) {
+        const cacheKey = `chat:${projectId}:${userId}:${otherUserId || 'all'}:${page}:${limit}`;
+        // Try cache first
+        const cached = await cacheService.getChatHistory(cacheKey);
+        if (cached) return { messages: cached, total: cached.length, page, totalPages: 1 };
+
         const offset = (page - 1) * limit;
         const whereClause: any = { project_id: projectId };
 
@@ -194,15 +227,23 @@ export class ChatService {
                 })) || [],
         }));
 
-        return {
+        const result = {
             messages: messagesPayload.reverse(),
             total: count,
             page,
             totalPages: Math.ceil(count / limit),
         };
+
+        await cacheService.setChatHistory(cacheKey, result.messages);
+        return result;
     }
 
     async getProjectUsers(projectId: string, currentUserId: string) {
+        const cacheKey = `project_users:${projectId}:${currentUserId}`;
+
+        const cached = await cacheService.getChatHistory(cacheKey);
+        if (cached) return cached;
+
         const project = await Project.findByPk(projectId);
         if (!project) return [];
 
@@ -268,6 +309,8 @@ export class ChatService {
             }
         }
 
+        await cacheService.setChatHistory(cacheKey, users, 600);
+
         return users;
     }
 
@@ -303,10 +346,18 @@ export class ChatService {
     }
 
     async markMessagesAsRead(messageIds: string[], userId: string) {
+        const uuidRegex =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const safeMessageIds = Array.isArray(messageIds)
+            ? messageIds.filter((id) => typeof id === 'string' && uuidRegex.test(id))
+            : [];
+
+        if (safeMessageIds.length === 0) return;
+
         // Find messages to be updated to get their sender IDs
         const messages = await Message.findAll({
             where: {
-                id: { [Op.in]: messageIds },
+                id: { [Op.in]: safeMessageIds },
                 receiver_id: userId,
                 status: { [Op.ne]: MESSAGE_STATUS.READ },
             },

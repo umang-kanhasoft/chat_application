@@ -37,6 +37,17 @@ export enum SocketEventType {
     // Heartbeat
     HEARTBEAT = 'heartbeat',
 
+    // Calls (WebRTC signaling)
+    CALL_START = 'call_start',
+    CALL_RINGING = 'call_ringing',
+    CALL_ACCEPT = 'call_accept',
+    CALL_REJECT = 'call_reject',
+    CALL_BUSY = 'call_busy',
+    CALL_OFFER = 'call_offer',
+    CALL_ANSWER = 'call_answer',
+    CALL_ICE_CANDIDATE = 'call_ice_candidate',
+    CALL_END = 'call_end',
+
     // Error
     ERROR = 'error',
 }
