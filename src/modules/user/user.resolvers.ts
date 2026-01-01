@@ -27,59 +27,27 @@ export default {
             return await User.findAll();
         },
         user: async (_: unknown, { id }: UserArgs) => {
-            return await User.findByPk(id, {
-                include: [
-                    {
-                        model: UserSkill,
-                        as: 'user_skills',
-                        include: [{ model: Skill, as: 'skill' }],
-                    },
-                    {
-                        model: Project,
-                        as: 'authoredProjects',
-                        include: [
-                            {
-                                model: ProjectSkill,
-                                as: 'project_skills',
-                                include: [{ model: Skill, as: 'skill' }],
-                            },
-                        ],
-                    },
-                    {
-                        model: Bid,
-                        as: 'bids',
-                        include: [
-                            {
-                                model: Project,
-                                as: 'project',
-                                include: [
-                                    {
-                                        model: ProjectSkill,
-                                        as: 'project_skills',
-                                        include: [{ model: Skill, as: 'skill' }],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                    {
-                        model: Message,
-                        as: 'sendMessage',
-                        include: [
-                            { model: User, as: 'receiver' },
-                            { model: Project, as: 'project' },
-                        ],
-                    },
-                    {
-                        model: Message,
-                        as: 'receivedMessage',
-                        include: [
-                            { model: User, as: 'sender' },
-                            { model: Project, as: 'project' },
-                        ],
-                    },
-                ],
+            return await User.findByPk(id);
+        },
+    },
+
+    User: {
+        user_skills: async (user: User) => {
+            return await UserSkill.findAll({
+                where: { user_id: user.id },
             });
+        },
+        authoredProjects: async (user: User) => {
+            return await Project.findAll({ where: { client_id: user.id } });
+        },
+        bids: async (user: User) => {
+            return await Bid.findAll({ where: { user_id: user.id } });
+        },
+        sendMessage: async (user: User) => {
+            return await Message.findAll({ where: { sender_id: user.id } });
+        },
+        receivedMessage: async (user: User) => {
+            return await Message.findAll({ where: { receiver_id: user.id } });
         },
     },
 

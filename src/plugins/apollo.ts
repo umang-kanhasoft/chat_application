@@ -5,6 +5,7 @@ import { mergeResolvers } from '@graphql-tools/merge';
 import { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { join } from 'node:path';
+import { authMiddleware } from '../modules/auth/middleware';
 import { formatError } from './errorFormatter';
 
 const typeDefs = loadFilesSync(join(__dirname, '../graphql/types/**.*'));
@@ -26,6 +27,7 @@ const startGraphQL: FastifyPluginAsync = async (fastify) => {
         fastify.route({
             url: '/graphql',
             method: ['GET', 'POST', 'OPTIONS'],
+            preValidation: [authMiddleware],
             handler: fastifyApolloHandler(server, {
                 // Access your Sequelize models or User from the request
                 context: async (request) => ({

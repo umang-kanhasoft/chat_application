@@ -1,4 +1,5 @@
 import { CreateUserSkillInput, UpdateUserSkillInput } from '../../graphql/schema/userSkill';
+import Skill from '../../models/Skill';
 import UserSkill from '../../models/UserSkill';
 
 interface CreateUserSkillArgs {
@@ -10,10 +11,23 @@ interface UpdateUserSkillArgs {
     data: UpdateUserSkillInput;
 }
 
+interface UserSkillsByUserIdArgs {
+    user_id: string;
+}
+
 export default {
     Query: {
-        userSkill: async () => {
-            return await UserSkill.findAll();
+        userSkill: async (_: unknown, { id }: { id: string }) => {
+            return await UserSkill.findByPk(id);
+        },
+        userSkillsByUserId: async (_: unknown, { user_id }: UserSkillsByUserIdArgs) => {
+            return await UserSkill.findAll({ where: { user_id } });
+        },
+    },
+
+    UserSkill: {
+        skill: async (userSkill: UserSkill) => {
+            return await Skill.findByPk(userSkill.skill_id);
         },
     },
 

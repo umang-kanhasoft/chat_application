@@ -4,7 +4,7 @@ import Project from '../../models/Project';
 import ProjectSkill from '../../models/ProjectSkill';
 import Skill from '../../models/Skill';
 import User, { ROLES } from '../../models/User';
-import UserSkill from '../../models/UserSkill';
+import toIsoString from '../../utils/convertDate';
 
 interface ProjectArgs {
     id: string;
@@ -25,43 +25,22 @@ export default {
             return await Project.findAll();
         },
         project: async (_: unknown, { id }: ProjectArgs) => {
-            return await Project.findByPk(id, {
-                include: [
-                    {
-                        model: ProjectSkill,
-                        as: 'project_skills',
-                        include: [
-                            {
-                                model: Skill,
-                                as: 'skill',
-                            },
-                        ],
-                    },
-                    {
-                        model: Bid,
-                        as: 'bids',
-                        include: [
-                            {
-                                model: User,
-                                as: 'user',
-                                include: [
-                                    {
-                                        model: UserSkill,
-                                        as: 'user_skills',
-                                        include: [
-                                            {
-                                                model: Skill,
-                                                as: 'skill',
-                                            },
-                                        ],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
+            return await Project.findByPk(id);
+        },
+    },
+
+    Project: {
+        project_skills: async (project: Project) => {
+            return await ProjectSkill.findAll({
+                where: { project_id: project.id },
+                include: [{ model: Skill, as: 'skill' }],
             });
         },
+        bids: async (project: Project) => {
+            return await Bid.findAll({ where: { project_id: project.id } });
+        },
+        createdAt: (project: Project) => toIsoString(project.createdAt),
+        updatedAt: (project: Project) => toIsoString(project.updatedAt),
     },
 
     Mutation: {

@@ -9,8 +9,10 @@
     "scripts": {
         "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
         "start": "fastify start -l info -p $PORT -r dist/instrumentation.js dist/app.js",
-        "build:ts": "tsc",
+        "clean:dist": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+        "build:ts": "npm run clean:dist && tsc",
         "watch:ts": "tsc -w",
+        "dev1": "tsx watch src/server.ts",
         "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
         "dev:start": "fastify start --ignore-watch=.ts$ --ignore-watch=uploads/ -w -l info -p 4000 -r dist/instrumentation.js -P dist/app.js",
         "format": "prettier --write \"src/**/*.{ts,js,json}\"",
@@ -45,6 +47,9 @@
         "@sentry/profiling-node": "^10.32.1",
         "@sinclair/typebox": "^0.34.41",
         "@socket.io/redis-adapter": "^8.3.0",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^24.0.8",
+        "@types/uuid": "^11.0.0",
         "cloudinary": "^2.8.0",
         "fastify": "^5.0.0",
         "fastify-cli": "^7.4.1",
@@ -52,12 +57,13 @@
         "fastify-socket.io": "^5.1.0",
         "graphql": "^16.12.0",
         "http-status": "^2.1.0",
+        "jsonwebtoken": "^9.0.3",
         "pg": "^8.16.3",
         "redis": "^5.10.0",
         "sequelize": "^6.37.7",
         "socket.io": "^4.8.3",
-        "@types/node": "^24.0.8",
-        "typescript": "~5.9.2"
+        "typescript": "~5.9.2",
+        "uuid": "^13.0.0"
     },
     "devDependencies": {
         "@types/pg": "^8",

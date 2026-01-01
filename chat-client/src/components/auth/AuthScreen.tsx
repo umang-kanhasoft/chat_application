@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '../ui/Button';
+import { LandingPage } from './LandingPage';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { useAuthStore } from '../../store/authStore';
 
 export function AuthScreen() {
     const [error, setError] = useState('');
-    const { connect, isConnecting } = useWebSocket();
+    const { connect } = useWebSocket();
+    const { setOAuthSession } = useAuthStore();
 
-    const { oauthUserId, oauthError } = useMemo(() => {
+    const { oauthUserId, oauthUserName, oauthAccessToken, oauthError } = useMemo(() => {
         const params = new URLSearchParams(window.location.search);
         return {
             oauthUserId: params.get('userId')?.trim() || '',
+            oauthUserName: params.get('userName')?.trim() || '',
+            oauthAccessToken: params.get('accessToken')?.trim() || '',
             oauthError: params.get('oauthError')?.trim() || '',
         };
     }, []);
@@ -22,10 +26,16 @@ export function AuthScreen() {
         }
 
         if (!oauthUserId) return;
+        if (!oauthAccessToken) {
+            setError('Missing access token. Please try logging in again.');
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
 
         const run = async () => {
             setError('');
             try {
+                setOAuthSession(oauthUserId, oauthUserName || 'User', oauthAccessToken);
                 await connect(oauthUserId);
             } catch {
                 setError('Failed to connect. Please try again.');
@@ -35,51 +45,16 @@ export function AuthScreen() {
         };
 
         void run();
-    }, [oauthUserId, oauthError, connect]);
-
-    const getApiBaseUrl = () => {
-        const configured = (import.meta.env.VITE_API_URL as string | undefined) || '';
-        if (configured) return configured.replace(/\/+$/, '');
-
-        const hostname = window.location.hostname;
-        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        return `${protocol}//${hostname}:4000`;
-    };
-
-    const handleGoogleLogin = () => {
-        setError('');
-        window.location.href = `${getApiBaseUrl()}/auth/google`;
-    };
+    }, [oauthUserId, oauthUserName, oauthAccessToken, oauthError, connect, setOAuthSession]);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary to-primary-dark p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold bg-linear-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                        💬 Chat
-                    </h1>
-                    <p className="text-gray-600">Connect to start messaging</p>
+        <div>
+            {error && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in">
+                    ⚠️ {error}
                 </div>
-
-                <div className="space-y-5">
-                    {error ? <div className="text-sm text-red-600 text-center">{error}</div> : null}
-
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="lg"
-                        isLoading={isConnecting}
-                        className="w-full"
-                        onClick={handleGoogleLogin}
-                    >
-                        {isConnecting ? 'Connecting...' : 'Continue with Google'}
-                    </Button>
-                </div>
-
-                <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>Sign in to access the chat</p>
-                </div>
-            </div>
+            )}
+            <LandingPage />
         </div>
     );
 }

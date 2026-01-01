@@ -21,10 +21,10 @@ export function Avatar({ name, isOnline = false, size = 'md', className }: Avata
     };
 
     return (
-        <div className={cn('relative flex-shrink-0', className)}>
+        <div className={cn('relative shrink-0', className)}>
             <div
                 className={cn(
-                    'rounded-full bg-gradient-to-br from-primary to-primary-dark',
+                    'rounded-full bg-linear-to-br from-primary to-primary-dark',
                     'flex items-center justify-center text-white font-semibold',
                     sizes[size]
                 )}

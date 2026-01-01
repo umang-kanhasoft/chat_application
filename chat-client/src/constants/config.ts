@@ -39,3 +39,26 @@ export const CONFIG = {
         ANIMATION_DURATION: 300,
     },
 } as const;
+
+export const DEFAULT_SKILL_NAMES = [
+    'JavaScript',
+    'TypeScript',
+    'React',
+    'Node.js',
+    'Express',
+    'GraphQL',
+    'PostgreSQL',
+    'MySQL',
+    'MongoDB',
+    'Docker',
+    'AWS',
+    'HTML',
+    'CSS',
+    'Tailwind CSS',
+    'UI/UX Design',
+    'Figma',
+    'Python',
+    'Django',
+    'Java',
+    'Spring Boot',
+] as const;

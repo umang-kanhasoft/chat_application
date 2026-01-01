@@ -16,6 +16,8 @@ export interface ProjectAttributes {
     status: PROJECT_STATUS;
     client_id: string;
     accepted_bid_id?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 class Project extends Model<ProjectAttributes> implements ProjectAttributes {
@@ -26,6 +28,8 @@ class Project extends Model<ProjectAttributes> implements ProjectAttributes {
     declare status: PROJECT_STATUS;
     declare client_id: string;
     declare accepted_bid_id: string;
+    declare createdAt: string;
+    declare updatedAt: string;
 }
 
 Project.init(

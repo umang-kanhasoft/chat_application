@@ -18,6 +18,7 @@ export const typeDefs = `#graphql
 
     extend type Query {
         userSkill(id: ID!): UserSkill
+        userSkillsByUserId(user_id: ID!): [UserSkill!]!
     }
 
     extend type Mutation {

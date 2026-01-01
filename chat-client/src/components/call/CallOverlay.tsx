@@ -80,7 +80,7 @@ export function CallOverlay() {
     const inCall = status === 'IN_CALL';
 
     return (
-        <div className="fixed inset-0 z-[9999]">
+        <div className="fixed inset-0 z-999">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black" />
 

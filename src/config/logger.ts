@@ -5,7 +5,7 @@ const isProduction = config.environment === 'production';
 
 const level = process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug');
 
-const loggerOptions: LoggerOptions = {
+const pinoLoggerOptions: LoggerOptions = {
     level,
     base: {
         service: config.otel.serviceName,
@@ -39,7 +39,7 @@ const loggerOptions: LoggerOptions = {
 };
 
 if (!isProduction) {
-    loggerOptions.transport = {
+    pinoLoggerOptions.transport = {
         target: 'pino-pretty',
         options: {
             colorize: true,
@@ -50,6 +50,8 @@ if (!isProduction) {
     };
 }
 
-export const logger = pino(loggerOptions);
+export const fastifyLoggerOptions = pinoLoggerOptions;
+
+export const logger = pino(pinoLoggerOptions);
 
 export const getLogger = (component: string) => logger.child({ component });

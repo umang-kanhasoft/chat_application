@@ -3,6 +3,7 @@ import { CreateMessageInput, UpdateMessageInput } from '../../graphql/schema/mes
 import Message from '../../models/Message';
 import Project from '../../models/Project';
 import User from '../../models/User';
+import toIsoString from '../../utils/convertDate';
 
 interface MessageArgs {
     id: string;
@@ -41,6 +42,10 @@ export default {
             });
             return data;
         },
+    },
+    Message: {
+        createdAt: (message: Message) => toIsoString(message.createdAt),
+        updatedAt: (message: Message) => toIsoString(message.updatedAt),
     },
 
     Mutation: {

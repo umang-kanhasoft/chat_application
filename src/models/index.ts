@@ -6,6 +6,7 @@ import ProjectSkill from './ProjectSkill';
 import Skill from './Skill';
 import User from './User';
 import UserSkill from './UserSkill';
+import UserToken from './UserToken';
 
 const models = {
     User,
@@ -16,6 +17,7 @@ const models = {
     Bid,
     Message,
     Attachment,
+    UserToken,
 };
 
 // User <-> Skill (Many-To-Many through UserSkill)

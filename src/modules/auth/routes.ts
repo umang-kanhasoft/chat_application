@@ -2,6 +2,8 @@ import oauthPlugin from '@fastify/oauth2';
 import { FastifyPluginAsync } from 'fastify';
 import { config } from '../../config/config';
 import User, { ROLES } from '../../models/User';
+import { createTokens, verifyRefreshToken } from '../../utils/tokens';
+import { authMiddleware } from './middleware';
 
 type GoogleUserInfo = {
     email?: string;
@@ -93,9 +95,19 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                       isOnline: false,
                   });
 
+            const { accessToken, refreshToken } = await createTokens(user.id);
+            reply.setCookie('refreshToken', refreshToken, {
+                path: '/',
+                httpOnly: true,
+                secure: config.environment === 'production',
+                sameSite: 'lax',
+                maxAge: config.jwt.refreshExpires,
+            });
+
             const redirectUrl = new URL(config.clientURL);
             redirectUrl.searchParams.set('userId', user.id);
             redirectUrl.searchParams.set('userName', user.name);
+            redirectUrl.searchParams.set('accessToken', accessToken);
 
             return reply.redirect(redirectUrl.toString());
         } catch (error) {
@@ -108,6 +120,38 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.code(500).send({ error: message });
             }
         }
+    });
+
+    fastify.post('/logout', async (request, reply) => {
+        const token = request.cookies.refreshToken;
+        if (token) {
+            const record = await verifyRefreshToken(token);
+            if (record) {
+                await record.destroy();
+            }
+        }
+
+        reply.clearCookie('refreshToken', { path: '/' });
+        return { success: true };
+    });
+
+    fastify.get('/me', { preValidation: [authMiddleware] }, async (request, reply) => {
+        const userId = (request as any).userId as string | undefined;
+        if (!userId) {
+            return reply.code(401).send({ error: 'Unauthorized' });
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return reply.code(404).send({ error: 'User not found' });
+        }
+
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+        };
     });
 };
 

@@ -19,48 +19,29 @@ interface UpdateBidArgs {
     data: UpdateBidInput;
 }
 
+interface BidsByProjectIdArgs {
+    project_id: string;
+}
+
 export default {
     Query: {
         bids: async () => {
             return await Bid.findAll();
         },
         bid: async (_: unknown, { id }: BidArgs) => {
-            return await Bid.findByPk(id, {
-                include: [
-                    {
-                        model: User,
-                        as: 'user',
-                        include: [
-                            {
-                                model: UserSkill,
-                                as: 'user_skills',
-                                include: [
-                                    {
-                                        model: Skill,
-                                        as: 'skill',
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                    {
-                        model: Project,
-                        as: 'project',
-                        include: [
-                            {
-                                model: ProjectSkill,
-                                as: 'project_skills',
-                                include: [
-                                    {
-                                        model: Skill,
-                                        as: 'skill',
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            });
+            return await Bid.findByPk(id);
+        },
+        bidsByProjectId: async (_: unknown, { project_id }: BidsByProjectIdArgs) => {
+            return await Bid.findAll({ where: { project_id } });
+        },
+    },
+
+    Bid: {
+        user: async (bid: Bid) => {
+            return await User.findByPk(bid.user_id);
+        },
+        project: async (bid: Bid) => {
+            return await Project.findByPk(bid.project_id);
         },
     },
 

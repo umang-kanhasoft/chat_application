@@ -22,6 +22,12 @@ export default {
         },
     },
 
+    ProjectSkill: {
+        skill: async (projectSkill: ProjectSkill) => {
+            return await Skill.findByPk(projectSkill.skill_id);
+        },
+    },
+
     Mutation: {
         createProjectSkill: async (_: unknown, { data }: CreateProjectSkillArgs) => {
             const skill = await Skill.findByPk(data.skill_id);

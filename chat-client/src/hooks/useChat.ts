@@ -301,7 +301,7 @@ export function useChat() {
                     ? (msg.receiver_id as string | undefined)
                     : msg.sender_id;
             if (otherUserId) {
-                const ts = Date.parse(msg.timestamp);
+                const ts = Date.parse((msg.createdAt || msg.timestamp) as string);
                 bumpLastMessageAt(otherUserId, Number.isFinite(ts) ? ts : Date.now());
             }
 
@@ -309,6 +309,17 @@ export function useChat() {
             const isFromSelectedUser = msg.sender_id === selectedUserId;
             const isToSelectedUser = msg.receiver_id === selectedUserId;
             const isSentByMe = msg.sender_id === currentUserId;
+
+            if (!selectedUserId) {
+                if (!isSentByMe && msg.receiver_id === currentUserId) {
+                    // Avoid double counts: server may emit provisional (clientMsgId) + final (UUID).
+                    // Only count the persisted message (UUID id).
+                    if (typeof msg.id === 'string' && uuidRegex.test(msg.id)) {
+                        incrementUnreadCount(msg.sender_id);
+                    }
+                }
+                return;
+            }
 
             // If we have a selected user, only add if message is between us
             if (selectedUserId) {
@@ -410,7 +421,7 @@ export function useChat() {
                 // Set last activity time for this conversation based on newest message.
                 if (selectedUserId && history.length > 0) {
                     const newest = history.reduce((acc, m) => {
-                        const t = Date.parse(m.timestamp);
+                        const t = Date.parse((m.createdAt || m.timestamp) as string);
                         const tt = Number.isFinite(t) ? t : 0;
                         return tt > acc ? tt : acc;
                     }, 0);
