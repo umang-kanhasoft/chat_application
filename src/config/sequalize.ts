@@ -1,4 +1,5 @@
 import { Sequelize } from 'sequelize';
+import 'pg';
 import { config } from './config';
 import { getLogger } from './logger';
 

@@ -189,7 +189,7 @@ function App() {
               <div className="flex items-center justify-around py-2 px-2">
                 <button
                   onClick={() => setCurrentView('projects')}
-                  className={`flex flex-col items-center gap-1 px-6 py-2 rounded-lg smooth-transition min-h-14 ${currentView === 'projects' ? 'text-primary' : 'text-gray-500'
+                  className={`flex-1 flex flex-col items-center gap-1 px-2 py-2 rounded-lg smooth-transition min-h-14 ${currentView === 'projects' ? 'text-primary' : 'text-gray-500'
                     }`}
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -199,7 +199,7 @@ function App() {
                 </button>
                 <button
                   onClick={() => setCurrentView('chat')}
-                  className={`flex flex-col items-center gap-1 px-6 py-2 rounded-lg smooth-transition min-h-14 ${currentView === 'chat' ? 'text-primary' : 'text-gray-500'
+                  className={`flex-1 flex flex-col items-center gap-1 px-2 py-2 rounded-lg smooth-transition min-h-14 ${currentView === 'chat' ? 'text-primary' : 'text-gray-500'
                     }`}
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,7 +213,11 @@ function App() {
         )}
 
         {/* Main Content */}
-        <div className={(currentView === 'dashboard' || currentView === 'projects' || currentView === 'chat') ? 'pt-14 md:pt-16 pb-20 md:pb-0' : ''}>
+        <div
+          className={(currentView === 'dashboard' || currentView === 'projects' || currentView === 'chat')
+            ? 'pt-14 md:pt-16 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0'
+            : ''}
+        >
           {currentView === 'onboarding' && currentUserId && (
             <SkillsOnboarding userId={currentUserId} onComplete={handleOnboardingComplete} />
           )}

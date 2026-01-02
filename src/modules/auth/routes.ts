@@ -96,11 +96,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                   });
 
             const { accessToken, refreshToken } = await createTokens(user.id);
+            const isSecureContext =
+                config.environment === 'production' || config.clientURL.startsWith('https://');
+
             reply.setCookie('refreshToken', refreshToken, {
                 path: '/',
                 httpOnly: true,
-                secure: config.environment === 'production',
-                sameSite: 'lax',
+                secure: isSecureContext,
+                sameSite: isSecureContext ? 'none' : 'lax',
                 maxAge: config.jwt.refreshExpires,
             });
 
@@ -131,7 +134,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             }
         }
 
-        reply.clearCookie('refreshToken', { path: '/' });
+        const isSecureContext =
+            config.environment === 'production' || config.clientURL.startsWith('https://');
+
+        reply.clearCookie('refreshToken', {
+            path: '/',
+            secure: isSecureContext,
+            sameSite: isSecureContext ? 'none' : 'lax',
+        });
         return { success: true };
     });
 

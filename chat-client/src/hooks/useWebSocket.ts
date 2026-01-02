@@ -5,6 +5,13 @@ import { useChatStore } from '../store/chatStore';
 import { useConnectionStore } from '../store/connectionStore';
 import { ConnectionStatus, SocketEventType, type User } from '../types/chat.types';
 
+const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
+
+const getApiBaseUrl = () => {
+    const raw = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+    return raw ? normalizeBaseUrl(raw) : '';
+};
+
 export function useWebSocket() {
     const { setUser, clearUser } = useAuthStore();
     const { status, isConnecting, setStatus, setOnlineUsers, setUserStatus } = useConnectionStore();
@@ -63,6 +70,22 @@ export function useWebSocket() {
         wsService.disconnect();
         clearUserRef.current();
     }, []); // Empty deps - uses ref
+
+    const logout = useCallback(async () => {
+        try {
+            const base = getApiBaseUrl();
+            const url = base ? `${base}/auth/logout` : '/auth/logout';
+            await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch {
+            // ignore
+        } finally {
+            wsService.disconnect();
+            clearUserRef.current();
+        }
+    }, []);
 
     // Load user projects - stable reference
     const loadProjects = useCallback(() => {
@@ -211,6 +234,7 @@ export function useWebSocket() {
     return {
         connect,
         disconnect,
+        logout,
         loadProjects,
         loadGlobalUsers,
         loadProjectUsers,

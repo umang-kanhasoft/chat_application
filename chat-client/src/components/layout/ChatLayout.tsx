@@ -16,7 +16,13 @@ export function ChatLayout() {
     };
 
     return (
-        <div className="h-dvh w-screen flex bg-gray-100 overflow-hidden">
+        <div
+            className={
+                'h-[calc(100vh-8.5rem-env(safe-area-inset-bottom))] supports-[height:100dvh]:h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom))] ' +
+                'md:h-[calc(100vh-4rem)] md:supports-[height:100dvh]:h-[calc(100dvh-4rem)] ' +
+                'w-full flex bg-gray-100 overflow-hidden'
+            }
+        >
             <div
                 className={cn(
                     'h-full w-full md:w-88 md:flex md:shrink-0',

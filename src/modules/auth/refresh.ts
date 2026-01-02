@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
-import { verifyRefreshToken, createTokens } from '../../utils/tokens';
 import { config } from '../../config/config';
 import User from '../../models/User';
+import { createTokens, verifyRefreshToken } from '../../utils/tokens';
 
 const refreshRoute: FastifyPluginAsync = async (fastify) => {
     fastify.post('/refresh', async (request, reply) => {
@@ -15,11 +15,13 @@ const refreshRoute: FastifyPluginAsync = async (fastify) => {
         if (!user) return reply.code(401).send({ error: 'User not found' });
 
         const { accessToken, refreshToken: newRefresh } = await createTokens(record.userId);
+        const isSecureContext =
+            config.environment === 'production' || config.clientURL.startsWith('https://');
         reply.setCookie('refreshToken', newRefresh, {
             path: '/',
             httpOnly: true,
-            secure: config.environment === 'production',
-            sameSite: 'lax',
+            secure: isSecureContext,
+            sameSite: isSecureContext ? 'none' : 'lax',
             maxAge: config.jwt.refreshExpires,
         });
 
@@ -30,7 +32,7 @@ const refreshRoute: FastifyPluginAsync = async (fastify) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-            }
+            },
         };
     });
 };

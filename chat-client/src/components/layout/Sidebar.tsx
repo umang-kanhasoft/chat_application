@@ -1,9 +1,9 @@
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
+import { Button } from '../ui/Button';
 import { ProjectSelector } from '../user/ProjectSelector';
 import { UserList } from '../user/UserList';
-import { useChatStore } from '../../store/chatStore';
-import { useWebSocket } from '../../hooks/useWebSocket';
-import { Button } from '../ui/Button';
 
 interface SidebarProps {
     onSelectUser: (userId: string) => void;
@@ -12,7 +12,7 @@ interface SidebarProps {
 export function Sidebar({ onSelectUser }: SidebarProps) {
     const { currentUserName } = useAuthStore();
     const { selectedProjectId } = useChatStore();
-    const { disconnect } = useWebSocket();
+    const { logout } = useWebSocket();
 
     return (
         <div className="w-full md:w-88 bg-white border-r border-gray-200 flex flex-col h-full">
@@ -29,7 +29,7 @@ export function Sidebar({ onSelectUser }: SidebarProps) {
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={disconnect}
+                    onClick={logout}
                     className="text-white hover:bg-white/20 border border-white/30"
                 >
                     Logout
