@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { ProjectCard } from './ProjectCard';
@@ -150,8 +151,8 @@ export function ProjectsPage({ currentUserId }: ProjectsPageProps) {
                 <div className="mb-6 md:mb-8">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 md:mb-6">
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-bold text-white mb-1 md:mb-2">Projects</h1>
-                            <p className="text-sm md:text-base text-white/80">Find your next opportunity or post a project</p>
+                            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1 md:mb-2 font-display">Projects</h1>
+                            <p className="text-sm md:text-base text-gray-500">Find your next opportunity or post a project</p>
                         </div>
                         <Button
                             variant="primary"
@@ -173,8 +174,8 @@ export function ProjectsPage({ currentUserId }: ProjectsPageProps) {
                         <button
                             onClick={() => setActiveTab('all')}
                             className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-lg font-semibold smooth-transition text-sm md:text-base ${activeTab === 'all'
-                                ? 'glass-white text-primary shadow-lg'
-                                : 'text-white/80 hover:text-white hover:bg-white/10'
+                                ? 'bg-primary text-white shadow-lg'
+                                : 'text-gray-600 hover:text-primary hover:bg-primary/5'
                                 }`}
                         >
                             All Projects
@@ -182,8 +183,8 @@ export function ProjectsPage({ currentUserId }: ProjectsPageProps) {
                         <button
                             onClick={() => setActiveTab('my-projects')}
                             className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-lg font-semibold smooth-transition text-sm md:text-base ${activeTab === 'my-projects'
-                                ? 'glass-white text-primary shadow-lg'
-                                : 'text-white/80 hover:text-white hover:bg-white/10'
+                                ? 'bg-primary text-white shadow-lg'
+                                : 'text-gray-600 hover:text-primary hover:bg-primary/5'
                                 }`}
                         >
                             My Projects
@@ -305,17 +306,30 @@ export function ProjectsPage({ currentUserId }: ProjectsPageProps) {
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {filteredProjects.map(project => (
-                            <ProjectCard
-                                key={project.id}
-                                project={project}
-                                currentUserId={currentUserId}
-                                onViewDetails={(p) => setSelectedProject(p)}
-                                onBid={(p) => setBidProject(p)}
-                            />
-                        ))}
-                    </div>
+                    <motion.div
+                        layout
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+                    >
+                        <AnimatePresence>
+                            {filteredProjects.map((project, index) => (
+                                <motion.div
+                                    key={project.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                                    className="h-full"
+                                >
+                                    <ProjectCard
+                                        project={project}
+                                        currentUserId={currentUserId}
+                                        onViewDetails={(p) => setSelectedProject(p)}
+                                        onBid={(p) => setBidProject(p)}
+                                    />
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </motion.div>
                 )}
             </div>
 

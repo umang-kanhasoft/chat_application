@@ -54,6 +54,9 @@ export enum SocketEventType {
 
     // Error
     ERROR = 'error',
+
+    // Device Registration (FCM)
+    REGISTER_DEVICE = 'register_device',
 }
 
 export interface Attachment {

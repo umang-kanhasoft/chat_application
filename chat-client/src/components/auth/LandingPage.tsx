@@ -1,12 +1,71 @@
 import { Button } from '../ui/Button';
+import { useState } from 'react';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { useAuthStore } from '../../store/authStore';
+import { config } from '../../constants/config';
 
 const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
-const API_BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined) ?? '').trim();
 
 export function LandingPage() {
+    const { connect } = useWebSocket();
+    const { setOAuthSession } = useAuthStore();
+    const [devEmail, setDevEmail] = useState('');
+    const [devName, setDevName] = useState('');
+    const [devSecret, setDevSecret] = useState('');
+    const [devError, setDevError] = useState('');
+    const [devLoading, setDevLoading] = useState(false);
+
     const handleGoogleSignIn = () => {
-        const url = API_BASE_URL ? `${normalizeBaseUrl(API_BASE_URL)}/auth/google` : '/auth/google';
+        const apiBase = (config.apiURL ?? '').trim();
+        const url = apiBase ? `${normalizeBaseUrl(apiBase)}/auth/google` : '/auth/google';
         window.location.href = url;
+    };
+
+    const handleDevLogin = async () => {
+        setDevError('');
+        const email = devEmail.trim().toLowerCase();
+        if (!email) {
+            setDevError('Email is required');
+            return;
+        }
+
+        const apiBase = (config.apiURL ?? '').trim();
+        const url = apiBase ? `${normalizeBaseUrl(apiBase)}/auth/dev-login` : '/auth/dev-login';
+
+        setDevLoading(true);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    name: devName.trim() || undefined,
+                    secret: devSecret.trim() || undefined,
+                }),
+            });
+
+            const data = (await res.json().catch(() => null)) as
+                | { accessToken?: string; user?: { id: string; name: string } ; error?: string }
+                | null;
+
+            if (!res.ok) {
+                setDevError(data?.error || 'Dev login failed');
+                return;
+            }
+
+            if (!data?.accessToken || !data.user?.id) {
+                setDevError('Dev login failed: missing token');
+                return;
+            }
+
+            setOAuthSession(data.user.id, data.user.name || 'User', data.accessToken);
+            await connect(data.user.id);
+        } catch (e) {
+            setDevError(e instanceof Error ? e.message : 'Dev login failed');
+        } finally {
+            setDevLoading(false);
+        }
     };
 
     return (
@@ -100,6 +159,49 @@ export function LandingPage() {
                                 >
                                     Continue with Google
                                 </Button>
+
+                                {import.meta.env.DEV && (
+                                    <div className="mt-6 pt-5 border-t border-gray-200">
+                                        <div className="text-sm font-semibold text-gray-900 mb-3">
+                                            Dev login (local testing)
+                                        </div>
+
+                                        {devError && (
+                                            <div className="text-xs text-red-600 mb-3">{devError}</div>
+                                        )}
+
+                                        <div className="space-y-3">
+                                            <input
+                                                value={devEmail}
+                                                onChange={(e) => setDevEmail(e.target.value)}
+                                                placeholder="email (required)"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                            />
+                                            <input
+                                                value={devName}
+                                                onChange={(e) => setDevName(e.target.value)}
+                                                placeholder="name (optional)"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                            />
+                                            <input
+                                                value={devSecret}
+                                                onChange={(e) => setDevSecret(e.target.value)}
+                                                placeholder="secret (optional)"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                            />
+                                            <Button
+                                                onClick={handleDevLogin}
+                                                variant="secondary"
+                                                size="lg"
+                                                fullWidth
+                                                className="min-h-12"
+                                                disabled={devLoading}
+                                            >
+                                                {devLoading ? 'Signing in...' : 'Dev Login'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <p className="text-xs text-gray-500 text-center mt-3 md:mt-4">
                                     By signing in, you agree to our Terms of Service and Privacy Policy

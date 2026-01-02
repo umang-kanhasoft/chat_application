@@ -1,5 +1,3 @@
-export const WS_URL = import.meta.env.VITE_WS_URL;
-
 export const WEBRTC_ICE_SERVERS: RTCIceServer[] = (() => {
     const raw = import.meta.env.VITE_WEBRTC_ICE_SERVERS as string | undefined;
     if (raw) {
@@ -16,7 +14,7 @@ export const WEBRTC_ICE_SERVERS: RTCIceServer[] = (() => {
     return [{ urls: ['stun:stun.l.google.com:19302'] }];
 })();
 
-export const CONFIG = {
+export const TYPING_CONFIG = {
     // WebSocket configuration
     WS: {
         RECONNECT_INTERVAL: 3000,
@@ -62,3 +60,23 @@ export const DEFAULT_SKILL_NAMES = [
     'Java',
     'Spring Boot',
 ] as const;
+
+// Helper to potential extra quotes/commas from env vars (common copy-paste error)
+const clean = (val: string | undefined) => (val ? val.replace(/["',]/g, '').trim() : undefined);
+
+export const config = {
+    apiURL: import.meta.env.VITE_API_URL,
+    webSocketURL: import.meta.env.VITE_WS_URL,
+    firebase: {
+        apiKey: clean(import.meta.env.VITE_API_KEY),
+        authDomain: clean(import.meta.env.VITE_AUTH_DOMAIN),
+        projectId: clean(import.meta.env.VITE_PROJECT_ID),
+        storageBucket: clean(import.meta.env.VITE_STORAGE_BUCKET),
+        messagingSenderId: clean(import.meta.env.VITE_MESSAGING_SENDER_ID),
+        appId: clean(import.meta.env.VITE_APP_ID),
+        measurementId: clean(import.meta.env.VITE_MEASUREMENT_ID),
+        vapidKey: clean(import.meta.env.VITE_VAPID_KEY),
+    },
+};
+
+export const WS_URL = config.webSocketURL;

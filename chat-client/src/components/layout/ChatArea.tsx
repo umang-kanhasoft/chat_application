@@ -32,7 +32,7 @@ export function ChatArea() {
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-chat-bg min-h-0">
+        <div className="flex-1 flex flex-col chat-wallpaper min-h-0">
             <ChatHeader />
             <MessageList
                 key={selectedUserId}

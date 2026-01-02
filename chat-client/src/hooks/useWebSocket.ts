@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { config } from '../constants/config';
 import { wsService } from '../services/websocket.service';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
@@ -8,8 +9,7 @@ import { ConnectionStatus, SocketEventType, type User } from '../types/chat.type
 const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
 const getApiBaseUrl = () => {
-    const raw = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-    return raw ? normalizeBaseUrl(raw) : '';
+    return config.webSocketURL ? normalizeBaseUrl(config.webSocketURL) : '';
 };
 
 export function useWebSocket() {
@@ -110,6 +110,14 @@ export function useWebSocket() {
             payload: { projectId },
         });
     }, []); // Empty deps - function is stable
+
+    // Register Device for FCM - stable reference
+    const registerDevice = useCallback((token: string) => {
+        wsService.send({
+            type: SocketEventType.REGISTER_DEVICE,
+            payload: { token, platform: 'web' },
+        });
+    }, []);
 
     // Set up event handlers - only once
     useEffect(() => {
@@ -238,6 +246,7 @@ export function useWebSocket() {
         loadProjects,
         loadGlobalUsers,
         loadProjectUsers,
+        registerDevice,
         isConnected: status === ConnectionStatus.CONNECTED,
         isConnecting: isConnecting || status === ConnectionStatus.CONNECTING,
         isReconnecting: status === ConnectionStatus.RECONNECTING,

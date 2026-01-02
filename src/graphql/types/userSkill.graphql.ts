@@ -24,5 +24,6 @@ export const typeDefs = `#graphql
     extend type Mutation {
         createUserSkill(data: UserSkillInput!): UserSkill!
         updateUserSkill(id: ID!, data: UserSkillInput!): UserSkill!
+        deleteUserSkill(user_id: ID!, skill_id: ID!): Boolean
     }
 `;

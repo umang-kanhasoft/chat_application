@@ -7,6 +7,7 @@ import ProjectSkill from '../../models/ProjectSkill';
 import Skill from '../../models/Skill';
 import User from '../../models/User';
 import UserSkill from '../../models/UserSkill';
+import cacheService from '../../services/cache.service';
 
 interface UserArgs {
     id: string;
@@ -53,7 +54,9 @@ export default {
 
     Mutation: {
         createUser: async (_: unknown, { data }: CreateUserArgs) => {
-            return await User.create(data);
+            const user = await User.create(data);
+            await cacheService.invalidateGlobalUserCache();
+            return user;
         },
         updateUser: async (_: unknown, { id, data }: UpdateUserArgs) => {
             const user = await User.findByPk(id);

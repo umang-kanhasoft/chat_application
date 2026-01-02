@@ -1,3 +1,4 @@
+import { config } from '../constants/config';
 import { useAuthStore } from '../store/authStore';
 
 type GraphQLResponse<TData> = {
@@ -20,7 +21,7 @@ export class GraphQLRequestError extends Error {
 const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
 const getGraphQLEndpoint = () => {
-    const raw = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+    const raw = config.apiURL ?? '';
     const base = raw ? normalizeBaseUrl(raw) : '';
     return base ? `${base}/graphql` : '/graphql';
 };

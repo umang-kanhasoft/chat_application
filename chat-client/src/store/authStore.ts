@@ -1,10 +1,11 @@
 import { create } from 'zustand';
+import { config } from '../constants/config';
 
 
 const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, '');
 
 const getApiBaseUrl = () => {
-    const raw = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+    const raw = config.apiURL ?? '';
     return raw ? normalizeBaseUrl(raw) : '';
 };
 
@@ -21,6 +22,7 @@ interface AuthState {
     refreshAccessToken: () => Promise<boolean>;
     initializeAuth: () => Promise<void>;
     clearUser: () => void;
+    logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
@@ -99,4 +101,18 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             isAuthenticated: false,
             accessToken: null,
         }),
+
+    logout: async () => {
+        try {
+            const base = getApiBaseUrl();
+            const url = base ? `${base}/auth/logout` : '/auth/logout';
+            await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error('Logout failed', error);
+        }
+        get().clearUser();
+    },
 }));

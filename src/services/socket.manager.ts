@@ -8,6 +8,7 @@ import { Sentry } from '../config/sentry';
 import User from '../models/User';
 import { AuthenticatedSocket, SocketEventType, SocketMessage } from '../types/socket.types';
 import chatService from './chat.service';
+import fcmService from './fcm.service';
 
 const log = getLogger('socket.manager');
 
@@ -345,46 +346,68 @@ class SocketManager {
                             }
                         }
 
-                        void (async () => {
-                            try {
-                                const sentMessage = await chatService.sendMessage(
-                                    authenticatedUserId,
-                                    receiver_id,
-                                    projectId,
-                                    content || '',
-                                    attachments,
-                                    clientMsgId,
-                                    receiverOnline,
-                                    socket.userName,
-                                );
+                        try {
+                            const sentMessage = await chatService.sendMessage(
+                                authenticatedUserId,
+                                receiver_id,
+                                projectId,
+                                content || '',
+                                attachments,
+                                clientMsgId,
+                                receiverOnline,
+                                socket.userName,
+                            );
 
-                                socket.emit('message', {
+                            socket.emit('message', {
+                                type: SocketEventType.MESSAGE_RECEIVED,
+                                payload: sentMessage,
+                            });
+
+                            if (receiverOnline && !hasUploadingPlaceholder) {
+                                this.sendToUser(receiver_id, {
                                     type: SocketEventType.MESSAGE_RECEIVED,
                                     payload: sentMessage,
                                 });
-
-                                if (receiverOnline && !hasUploadingPlaceholder) {
-                                    this.sendToUser(receiver_id, {
-                                        type: SocketEventType.MESSAGE_RECEIVED,
-                                        payload: sentMessage,
-                                    });
-                                }
-                            } catch (error) {
-                                log.error({ err: error }, 'Error persisting chat message');
-                                Sentry.captureException(error, {
-                                    tags: { component: 'websocket', event: 'message_send_persist' },
-                                    user: { id: authenticatedUserId },
-                                });
-
-                                socket.emit('message', {
-                                    type: SocketEventType.ERROR,
-                                    payload: {
-                                        error: 'Failed to send message',
-                                        clientMsgId,
-                                    },
-                                });
                             }
-                        })();
+
+                            // Send Push Notification
+                            if (sentMessage) {
+                                // Don't await this, let it run in background to avoid blocking the socket loop
+                                fcmService.sendNotification(receiver_id, {
+                                    title: `New message from ${socket.userName || 'User'}`,
+                                    body: content || (attachments?.length ? 'Sent an attachment' : 'New message'),
+                                    data: {
+                                        type: 'NEW_MESSAGE',
+                                        messageId: sentMessage.id,
+                                        senderId: authenticatedUserId,
+                                        projectId: projectId || '',
+                                    },
+                                }).catch(err => log.error({ err }, 'Failed to send notification'));
+                            }
+
+                        } catch (error) {
+                            log.error({ err: error }, 'Error persisting chat message');
+                            Sentry.captureException(error, {
+                                tags: { component: 'websocket', event: 'message_send_persist' },
+                                user: { id: authenticatedUserId },
+                            });
+
+                            socket.emit('message', {
+                                type: SocketEventType.ERROR,
+                                payload: {
+                                    error: 'Failed to send message',
+                                    clientMsgId,
+                                },
+                            });
+                        }
+                        break;
+
+                    case SocketEventType.REGISTER_DEVICE:
+                        if (!authenticatedUserId) return;
+                        const { token, platform } = message.payload;
+                        if (token) {
+                            await fcmService.registerDevice(authenticatedUserId, token, platform);
+                        }
                         break;
 
                     case SocketEventType.GET_USER_PROJECTS:

@@ -4,10 +4,17 @@ import { config } from '../../config/config';
 import User, { ROLES } from '../../models/User';
 import { createTokens, verifyRefreshToken } from '../../utils/tokens';
 import { authMiddleware } from './middleware';
+import cacheService from '../../services/cache.service';
 
 type GoogleUserInfo = {
     email?: string;
     name?: string;
+};
+
+type DevLoginBody = {
+    email?: string;
+    name?: string;
+    secret?: string;
 };
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -88,12 +95,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             const user = existingUser
                 ? await existingUser.update({ name, lastSeen: new Date() })
                 : await User.create({
-                      name,
-                      email,
-                      role: ROLES.USER,
-                      lastSeen: new Date(),
-                      isOnline: false,
-                  });
+                    name,
+                    email,
+                    role: ROLES.USER,
+                    lastSeen: new Date(),
+                    isOnline: false,
+                });
+
+            if (!existingUser) {
+                await cacheService.invalidateGlobalUserCache();
+            }
 
             const { accessToken, refreshToken } = await createTokens(user.id);
             const isSecureContext =
@@ -123,6 +134,70 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.code(500).send({ error: message });
             }
         }
+    });
+
+    fastify.post('/dev-login', async (request, reply) => {
+        if (config.environment === 'production') {
+            return reply.code(404).send({ error: 'Not found' });
+        }
+
+        const body = (request.body || {}) as DevLoginBody;
+        const email = body.email?.trim().toLowerCase();
+        if (!email) {
+            return reply.code(400).send({ error: 'email is required' });
+        }
+
+        const secretExpected = process.env.DEV_LOGIN_SECRET;
+        if (secretExpected && body.secret !== secretExpected) {
+            return reply.code(401).send({ error: 'Invalid secret' });
+        }
+
+        const allowListRaw = (process.env.DEV_LOGIN_ALLOWLIST || '').trim();
+        if (allowListRaw) {
+            const allowList = new Set(
+                allowListRaw
+                    .split(',')
+                    .map((v) => v.trim().toLowerCase())
+                    .filter(Boolean),
+            );
+            if (!allowList.has(email)) {
+                return reply.code(403).send({ error: 'Email not allowed' });
+            }
+        }
+
+        const name = body.name?.trim() || email.split('@')[0] || 'User';
+        const existingUser = await User.findOne({ where: { email } });
+        const user = existingUser
+            ? await existingUser.update({ name, lastSeen: new Date() })
+            : await User.create({
+                name,
+                email,
+                role: ROLES.USER,
+                lastSeen: new Date(),
+                isOnline: false,
+            });
+
+        const { accessToken, refreshToken } = await createTokens(user.id);
+        const isSecureContext =
+            config.environment === 'production' || config.clientURL.startsWith('https://');
+
+        reply.setCookie('refreshToken', refreshToken, {
+            path: '/',
+            httpOnly: true,
+            secure: isSecureContext,
+            sameSite: isSecureContext ? 'none' : 'lax',
+            maxAge: config.jwt.refreshExpires,
+        });
+
+        return {
+            accessToken,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            },
+        };
     });
 
     fastify.post('/logout', async (request, reply) => {

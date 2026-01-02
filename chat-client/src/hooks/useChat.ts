@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CONFIG } from '../constants/config';
+import { TYPING_CONFIG } from '../constants/config';
 import { wsService } from '../services/websocket.service';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
@@ -8,9 +8,9 @@ import { MessageStatus, SocketEventType, type Attachment, type Message } from '.
 type InitialTopMostItemIndex =
     | number
     | {
-          index: number;
-          align: 'start' | 'end';
-      }
+        index: number;
+        align: 'start' | 'end';
+    }
     | null;
 
 export function useChat() {
@@ -278,7 +278,7 @@ export function useChat() {
                 type: SocketEventType.TYPING_STOP,
                 payload: { projectId: selectedProjectId ?? null },
             });
-        }, CONFIG.CHAT.TYPING_TIMEOUT);
+        }, TYPING_CONFIG.CHAT.TYPING_TIMEOUT);
     }, [selectedProjectId, selectedUserId]);
 
     // Set up message event handlers

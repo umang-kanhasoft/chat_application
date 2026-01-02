@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { WS_URL } from '../constants/config';
+import { config } from '../constants/config';
 import { ConnectionStatus, SocketEventType, type SocketMessage } from '../types/chat.types';
 
 type MessageHandler = (message: SocketMessage) => void;
@@ -150,7 +150,7 @@ class SocketService {
 
             // Create new socket if it doesn't exist
             if (!this.socket) {
-                this.socket = io(WS_URL, {
+                this.socket = io(config.webSocketURL, {
                     reconnection: true,
                     reconnectionAttempts: this.maxReconnectAttempts,
                     reconnectionDelay: 1000,

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { config } from '../constants/config';
 
 export interface UploadProgressInfo {
     loaded: number;
@@ -13,7 +14,7 @@ export interface UploadProgressCallback {
 export class UploadService {
     private static instance: UploadService;
 
-    private constructor() {}
+    private constructor() { }
 
     public static getInstance(): UploadService {
         if (!UploadService.instance) {
@@ -81,7 +82,7 @@ export class UploadService {
 
     // Helper to get API URL
     private getApiBaseUrl(): string {
-        const configured = (import.meta.env.VITE_API_URL as string | undefined) || '';
+        const configured = config.apiURL ?? '';
         const base = configured
             ? configured.replace(/\/+$/, '')
             : `${window.location.protocol === 'https:' ? 'https:' : 'http:'}//${window.location.hostname}:4000`;

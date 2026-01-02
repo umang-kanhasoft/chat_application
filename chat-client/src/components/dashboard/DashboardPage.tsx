@@ -99,15 +99,15 @@ export function DashboardPage({ currentUserId, onNavigateToProjects }: Dashboard
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Dashboard</h1>
-                        <p className="text-base md:text-lg text-white/80">Welcome back! Here's your overview.</p>
+                        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 font-display">Dashboard</h1>
+                        <p className="text-base md:text-lg text-gray-500">Welcome back! Here's your overview.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
                         <Button
                             variant="outline"
                             size="md"
                             onClick={onNavigateToProjects}
-                            className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 min-h-11"
+                            className="bg-white border-gray-200 text-gray-700 hover:bg-gray-50 min-h-11"
                         >
                             Browse Projects
                         </Button>

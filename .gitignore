@@ -67,3 +67,4 @@ dist
 client
 
 .env
+.vercel

@@ -43,5 +43,11 @@ export default {
             await userSkill.update(data);
             return userSkill;
         },
+        deleteUserSkill: async (_: unknown, { user_id, skill_id }: { user_id: string; skill_id: string }) => {
+            const result = await UserSkill.destroy({
+                where: { user_id, skill_id },
+            });
+            return result > 0;
+        },
     },
 };

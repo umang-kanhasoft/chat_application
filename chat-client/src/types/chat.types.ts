@@ -48,6 +48,9 @@ export const SocketEventType = {
 
     // Error
     ERROR: 'error',
+
+    // Device Registration
+    REGISTER_DEVICE: 'register_device',
 } as const;
 
 export type SocketEventType = (typeof SocketEventType)[keyof typeof SocketEventType];

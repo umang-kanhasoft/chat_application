@@ -276,7 +276,7 @@ export class ChatService {
             });
         }
 
-        await cacheService.setChatHistory(cacheKey, results, 120);
+        await cacheService.setChatHistory(cacheKey, results, 5);
         return results;
     }
 

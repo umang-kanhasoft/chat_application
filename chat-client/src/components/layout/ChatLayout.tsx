@@ -19,8 +19,8 @@ export function ChatLayout() {
         <div
             className={
                 'h-[calc(100vh-8.5rem-env(safe-area-inset-bottom))] supports-[height:100dvh]:h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom))] ' +
-                'md:h-[calc(100vh-4rem)] md:supports-[height:100dvh]:h-[calc(100dvh-4rem)] ' +
-                'w-full flex bg-gray-100 overflow-hidden'
+                'md:h-[calc(100vh-5rem)] md:supports-[height:100dvh]:h-[calc(100dvh-5rem)] ' +
+                'w-full flex bg-slate-100 overflow-hidden'
             }
         >
             <div

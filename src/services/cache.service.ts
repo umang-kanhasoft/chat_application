@@ -66,6 +66,18 @@ export class CacheService {
             log.error({ err: error, userId }, 'User cache invalidation error');
         }
     }
+
+    async invalidateGlobalUserCache(): Promise<void> {
+        try {
+            const pattern = `global_users:v2:*`;
+            const keys = await this.client.keys(pattern);
+            for (const key of keys) {
+                await this.client.del(key);
+            }
+        } catch (error) {
+            log.error({ err: error }, 'Global user cache invalidation error');
+        }
+    }
 }
 
 export default new CacheService();

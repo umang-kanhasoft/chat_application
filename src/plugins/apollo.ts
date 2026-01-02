@@ -1,16 +1,44 @@
 import { ApolloServer } from '@apollo/server';
 import { fastifyApolloDrainPlugin, fastifyApolloHandler } from '@as-integrations/fastify';
-import { loadFilesSync } from '@graphql-tools/load-files';
-import { mergeResolvers } from '@graphql-tools/merge';
+import { mergeResolvers, mergeTypeDefs } from '@graphql-tools/merge';
 import { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
-import { join } from 'node:path';
+import { typeDefs as bidTypeDefs } from '../graphql/types/bid.graphql';
+import { typeDefs as messageTypeDefs } from '../graphql/types/message.graphql';
+import { typeDefs as projectTypeDefs } from '../graphql/types/project.graphql';
+import { typeDefs as projectSkillTypeDefs } from '../graphql/types/projectSkill.graphql';
+import { typeDefs as skillTypeDefs } from '../graphql/types/skill.graphql';
+import { typeDefs as userTypeDefs } from '../graphql/types/user.graphql';
+import { typeDefs as userSkillTypeDefs } from '../graphql/types/userSkill.graphql';
 import { authMiddleware } from '../modules/auth/middleware';
+import bidResolvers from '../modules/bid/bid.resolvers';
+import messageResolvers from '../modules/message/message.resolvers';
+import projectResolvers from '../modules/project/project.resolvers';
+import projectSkillResolvers from '../modules/projectSkill/projectSkill.resolvers';
+import skillResolvers from '../modules/skill/skill.resolvers';
+import userResolvers from '../modules/user/user.resolvers';
+import userSkillResolvers from '../modules/userSkill/userSkill.resolvers';
 import { formatError } from './errorFormatter';
 
-const typeDefs = loadFilesSync(join(__dirname, '../graphql/types/**.*'));
-const resolversArray = loadFilesSync(join(__dirname, '../modules/**/*.resolvers.*'));
-const resolvers = mergeResolvers(resolversArray);
+const typeDefs = mergeTypeDefs([
+    bidTypeDefs,
+    messageTypeDefs,
+    projectTypeDefs,
+    projectSkillTypeDefs,
+    skillTypeDefs,
+    userTypeDefs,
+    userSkillTypeDefs,
+]);
+
+const resolvers = mergeResolvers([
+    bidResolvers,
+    messageResolvers,
+    projectResolvers,
+    projectSkillResolvers,
+    skillResolvers,
+    userResolvers,
+    userSkillResolvers,
+]);
 
 const startGraphQL: FastifyPluginAsync = async (fastify) => {
     try {

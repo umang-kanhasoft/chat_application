@@ -19,12 +19,13 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
     return (
         <div className={cn('flex w-full', isSent ? 'justify-end' : 'justify-start')}>
             <div
-                className={cn(
-                    'max-w-[88%] sm:max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-sm border border-black/5',
-                    isSent
-                        ? 'bg-chat-sent text-gray-900 rounded-br-md'
-                        : 'bg-chat-received text-gray-900 rounded-bl-md',
-                )}
+                className={`
+                        max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm relative
+                        ${isSent
+                        ? 'bg-primary text-white rounded-br-none'
+                        : 'bg-white text-gray-900 rounded-bl-none shadow'
+                    }
+                    `}
             >
                 {/* Attachments */}
                 {message.attachments && message.attachments.length > 0 && (
@@ -121,7 +122,10 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
                     </div>
                 )}
                 <div className="flex items-center justify-end gap-1 mt-1.5">
-                    <span className="text-[11px] text-gray-500 select-none">
+                    <span className={cn(
+                        "text-[11px] select-none",
+                        isSent ? "text-white/80" : "text-gray-500"
+                    )}>
                         {formatMessageTime(message.createdAt || message.timestamp!)}
                     </span>
                     {isSent && (
@@ -129,8 +133,8 @@ export function MessageBubble({ message, isSent, onMediaLoad }: MessageBubblePro
                             className={cn(
                                 'text-sm select-none',
                                 message.status === MessageStatus.READ
-                                    ? 'text-blue-500'
-                                    : 'text-gray-400',
+                                    ? 'text-white'
+                                    : 'text-white/60',
                             )}
                         >
                             {getStatusIcon(message.status)}
