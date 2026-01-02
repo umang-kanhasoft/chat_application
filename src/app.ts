@@ -3,6 +3,7 @@ import { FastifyPluginAsync, FastifyServerOptions } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { fastifyLoggerOptions } from './config/logger';
+import './models';
 
 export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {}
 // Pass --options via CLI arguments in command to enable these options.
@@ -15,13 +16,13 @@ const options: AppOptions = {
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
     // This loads all plugins
-    void fastify.register(AutoLoad, {
+    await fastify.register(AutoLoad, {
         dir: join(__dirname, 'plugins'),
         options: opts,
     });
 
     // This loads all modules
-    void fastify.register(AutoLoad, {
+    await fastify.register(AutoLoad, {
         dir: join(__dirname, 'modules'),
         options: opts,
     });

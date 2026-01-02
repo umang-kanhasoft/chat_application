@@ -25,7 +25,7 @@ export const useNotifications = () => {
     }, [token, isConnected, registerDevice]);
 
     useEffect(() => {
-        const unsubscribe = onMessageListener().then(payload => {
+        void onMessageListener().then((payload) => {
             console.log('Foreground message received:', payload);
             // Optional: Helper to show toast if you have a toast system
             // toast.info(payload?.notification?.body);

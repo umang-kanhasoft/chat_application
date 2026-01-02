@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 import type { Message } from '../../types/chat.types';
+import { formatDateSeparator, isSameDay } from '../../utils/helpers';
 import { EmptyState } from '../ui/EmptyState';
 import { MessageBubble } from './MessageBubble';
 
@@ -14,13 +16,14 @@ interface MessageListProps {
     onLoadOlder: () => void;
     forceScrollToBottomToken?: number;
     initialTopMostItemIndex?:
-        | number
-        | {
-              index: number;
-              align: 'start' | 'end';
-          }
-        | null;
+    | number
+    | {
+        index: number;
+        align: 'start' | 'end';
+    }
+    | null;
     unreadAnchorMessageId?: string | null;
+    onReaction?: (messageId: string, emoji: string) => void;
 }
 
 export function MessageList({
@@ -33,21 +36,30 @@ export function MessageList({
     forceScrollToBottomToken,
     initialTopMostItemIndex,
     unreadAnchorMessageId,
+    onReaction,
 }: MessageListProps) {
     const { currentUserId } = useAuthStore();
+    const { setReplyingToMessage } = useChatStore();
     const virtuosoRef = useRef<VirtuosoHandle | null>(null);
     const initialScrollDoneRef = useRef(false);
     const isAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
-    const initialTopMostItemIndexRef = useRef<
-        | number
-        | {
-              index: number;
-              align: 'start' | 'end';
-          }
-        | null
-    >(null);
-    const alignToBottomRef = useRef(true);
+
+    type InitialTopMost = Exclude<MessageListProps['initialTopMostItemIndex'], undefined>;
+    const derivedInitialTopMostItemIndex = useMemo<InitialTopMost>(() => {
+        if (messages.length === 0) return null;
+        const lastIndex = firstItemIndex + messages.length - 1;
+        return typeof initialTopMostItemIndex === 'number'
+            ? { index: initialTopMostItemIndex, align: 'end' }
+            : (initialTopMostItemIndex ?? { index: lastIndex, align: 'end' });
+    }, [firstItemIndex, initialTopMostItemIndex, messages.length]);
+
+    const derivedAlignToBottom = useMemo(() => {
+        if (typeof derivedInitialTopMostItemIndex === 'object') {
+            return derivedInitialTopMostItemIndex?.align !== 'start';
+        }
+        return true;
+    }, [derivedInitialTopMostItemIndex]);
 
     const rafScrollRef = useRef<number | null>(null);
     const scrollToBottomIfPinned = () => {
@@ -91,7 +103,12 @@ export function MessageList({
         const lastIndex = firstItemIndex + messages.length - 1;
         isAtBottomRef.current = true;
         virtuosoRef.current?.scrollToIndex({ index: lastIndex, align: 'end', behavior: 'auto' });
-    }, [forceScrollToBottomToken]);
+    }, [forceScrollToBottomToken, firstItemIndex, messages.length]);
+
+    useEffect(() => {
+        if (messages.length === 0) return;
+        isAtBottomRef.current = derivedAlignToBottom;
+    }, [derivedAlignToBottom, messages.length]);
 
     useEffect(() => {
         const prevLen = prevMessagesLengthRef.current;
@@ -130,25 +147,6 @@ export function MessageList({
         return <EmptyState icon="💬" message="No messages yet. Start the conversation!" />;
     }
 
-    if (initialTopMostItemIndexRef.current === null && messages.length > 0) {
-        const lastIndex = firstItemIndex + messages.length - 1;
-        initialTopMostItemIndexRef.current =
-            typeof initialTopMostItemIndex === 'number'
-                ? { index: initialTopMostItemIndex, align: 'end' }
-                : (initialTopMostItemIndex ?? { index: lastIndex, align: 'end' });
-
-        if (
-            typeof initialTopMostItemIndexRef.current === 'object' &&
-            initialTopMostItemIndexRef.current?.align === 'start'
-        ) {
-            isAtBottomRef.current = false;
-            alignToBottomRef.current = false;
-        } else {
-            isAtBottomRef.current = true;
-            alignToBottomRef.current = true;
-        }
-    }
-
     return (
         <div className="flex-1 min-h-0 bg-chat-bg">
             <Virtuoso
@@ -156,12 +154,8 @@ export function MessageList({
                 style={{ height: '100%' }}
                 data={messages}
                 firstItemIndex={firstItemIndex}
-                initialTopMostItemIndex={
-                    typeof initialTopMostItemIndexRef.current === 'number'
-                        ? { index: initialTopMostItemIndexRef.current, align: 'end' }
-                        : (initialTopMostItemIndexRef.current ?? 0)
-                }
-                alignToBottom={alignToBottomRef.current}
+                initialTopMostItemIndex={derivedInitialTopMostItemIndex ?? 0}
+                alignToBottom={derivedAlignToBottom}
                 computeItemKey={(_, message) => message.id}
                 atBottomStateChange={(isAtBottom) => {
                     isAtBottomRef.current = isAtBottom;
@@ -187,26 +181,46 @@ export function MessageList({
                         ) : null,
                     Footer: () => <div className="h-4" />,
                 }}
-                itemContent={(_, message) => (
-                    <div className="px-3 sm:px-4 py-1">
-                        {unreadAnchorMessageId && message.id === unreadAnchorMessageId ? (
-                            <div className="py-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-px flex-1 bg-black/10" />
-                                    <div className="text-xs font-medium text-gray-600 bg-white/70 border border-black/5 rounded-full px-3 py-1">
-                                        Unread messages
-                                    </div>
-                                    <div className="h-px flex-1 bg-black/10" />
+                itemContent={(index, message) => {
+                    // Virtuoso uses firstItemIndex (e.g. 1000000) for prepending.
+                    // We must calculate the relative index in our messages array.
+                    const relativeIndex = index - firstItemIndex;
+                    const prevMessage = messages[relativeIndex - 1];
+
+                    const showDateSeparator =
+                        !prevMessage ||
+                        !isSameDay(message.createdAt || message.timestamp, prevMessage.createdAt || prevMessage.timestamp);
+
+                    return (
+                        <div className="px-3 sm:px-4 py-1">
+                            {showDateSeparator && (
+                                <div className="flex justify-center my-4 sticky top-2 z-10 pointer-events-none">
+                                    <span className="bg-white/80 backdrop-blur-sm shadow-sm border border-black/5 px-3 py-1 rounded-lg text-xs font-medium text-gray-500 select-none">
+                                        {formatDateSeparator(message.createdAt || message.timestamp)}
+                                    </span>
                                 </div>
-                            </div>
-                        ) : null}
-                        <MessageBubble
-                            message={message}
-                            isSent={message.sender_id === currentUserId}
-                            onMediaLoad={scrollToBottomIfPinned}
-                        />
-                    </div>
-                )}
+                            )}
+
+                            {unreadAnchorMessageId && message.id === unreadAnchorMessageId ? (
+                                <div className="py-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-px flex-1 bg-black/10" />
+                                        <div className="text-xs font-medium text-gray-600 bg-white/70 border border-black/5 rounded-full px-3 py-1">
+                                            Unread messages
+                                        </div>
+                                        <div className="h-px flex-1 bg-black/10" />
+                                    </div>
+                                </div>
+                            ) : null}
+                            <MessageBubble
+                                message={message}
+                                isSent={message.sender_id === currentUserId}
+                                onMediaLoad={scrollToBottomIfPinned}
+                                onReply={setReplyingToMessage}
+                            />
+                        </div>
+                    );
+                }}
             />
         </div>
     );

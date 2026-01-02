@@ -7,6 +7,8 @@ export const MessageSchema = Type.Object({
     sender_id: Type.String({ format: 'uuid' }),
     receiver_id: Type.String({ format: 'uuid' }),
     project_id: Type.String({ format: 'uuid' }),
+    replyToId: Type.Optional(Type.String({ format: 'uuid' })),
+    reactions: Type.Optional(Type.Array(Type.Any())),
     status: Type.Enum(MESSAGE_STATUS),
 });
 
@@ -15,6 +17,7 @@ export const CreateMessageSchema = Type.Pick(MessageSchema, [
     'sender_id',
     'receiver_id',
     'project_id',
+    'replyToId',
     'status',
 ]);
 export const UpdateMessageSchema = Type.Partial(CreateMessageSchema);

@@ -1,11 +1,18 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useFileUpload } from '../../hooks/useFileUpload';
-import type { Attachment } from '../../types/chat.types';
+import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
+import type { Attachment, Message } from '../../types/chat.types';
 import { Button } from '../ui/Button';
 import { FilePreview } from './FilePreview';
 
 interface MessageInputProps {
-    onSendMessage: (content: string, attachments?: Attachment[], tempId?: string) => void;
+    onSendMessage: (
+        content: string,
+        attachments?: Attachment[],
+        tempId?: string,
+        replyTo?: Message | null,
+    ) => void;
     onUploadProgress?: (
         clientMsgId: string,
         attachmentId: string,
@@ -35,6 +42,7 @@ export function MessageInput({
     const [isUploadingBatch, setIsUploadingBatch] = useState(false);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const tempIdCounterRef = useRef(0);
 
     const { uploadFile } = useFileUpload();
 
@@ -44,7 +52,7 @@ export function MessageInput({
         if (isUploadingBatch) return;
 
         if (selectedFiles.length > 0) {
-            const tempId = `temp_${Date.now()}`;
+            const tempId = `temp_${tempIdCounterRef.current++}`;
             const messageContent = message;
 
             const queue = selectedFiles.map((sf) => {
@@ -125,10 +133,14 @@ export function MessageInput({
             setSelectedFiles([]);
             setIsUploadingBatch(false);
         } else {
-            onSendMessage(message);
-            setMessage('');
-            onTyping(false);
+            if (message.trim()) {
+                onSendMessage(message, undefined, undefined, replyingToMessage);
+                setMessage('');
+                onTyping(false);
+            }
         }
+
+        setReplyingToMessage(null);
 
         if (typingTimeoutRef.current) {
             clearTimeout(typingTimeoutRef.current);
@@ -179,8 +191,61 @@ export function MessageInput({
         }
     };
 
+    const { replyingToMessage, setReplyingToMessage, projectUsers } = useChatStore();
+    const { currentUserId } = useAuthStore();
+
+    // Helper to get user name
+    const getSenderName = (senderId: string) => {
+        if (senderId === currentUserId) return 'You';
+        const user = projectUsers.find((u) => u.id === senderId);
+        return user?.name || 'Unknown';
+    };
+
     return (
         <div className="px-3 sm:px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] bg-white/90 backdrop-blur border-t border-black/10">
+            {/* Reply Preview */}
+            {replyingToMessage && (
+                <div className="flex items-center gap-3 p-2 mb-2 bg-gray-50 rounded-lg border-l-4 border-primary/60">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-primary/80 mb-0.5">
+                            {getSenderName(replyingToMessage.sender_id)}
+                        </p>
+                        <p className="text-sm text-gray-600 truncate">
+                            {replyingToMessage.attachments?.some((a) =>
+                                a.mime_type.startsWith('image/'),
+                            )
+                                ? '📷 Photo'
+                                : replyingToMessage.content}
+                        </p>
+                    </div>
+                    {replyingToMessage.attachments?.find((a) =>
+                        a.mime_type.startsWith('image/'),
+                    ) && (
+                            <div className="w-10 h-10 rounded-md overflow-hidden">
+                                <img
+                                    src={
+                                        replyingToMessage.attachments
+                                            .find((a) => a.mime_type.startsWith('image/'))
+                                            ?.url.startsWith('http')
+                                            ? replyingToMessage.attachments.find((a) =>
+                                                a.mime_type.startsWith('image/'),
+                                            )?.url
+                                            : `${window.location.protocol}//${window.location.hostname}:4000${replyingToMessage.attachments.find((a) => a.mime_type.startsWith('image/'))?.url}`
+                                    }
+                                    alt="Reply preview"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                        )}
+                    <button
+                        onClick={() => setReplyingToMessage(null)}
+                        className="p-1 hover:bg-black/5 rounded-full text-gray-400 hover:text-gray-600"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
             {selectedFiles.length > 0 && (
                 <div className="mb-2">
                     <div className="flex flex-wrap">

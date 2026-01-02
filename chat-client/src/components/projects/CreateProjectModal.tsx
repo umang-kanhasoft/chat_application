@@ -147,7 +147,7 @@ export function CreateProjectModal({ userId, onClose, onSuccess }: CreateProject
 
             await Promise.all(skillPromises);
             onSuccess();
-        } catch (error) {
+        } catch {
             setErrors({ submit: 'Failed to create project. Please try again.' });
         } finally {
             setIsLoading(false);

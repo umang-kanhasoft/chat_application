@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, User } from '../types/chat.types';
+import type { Project, User, Message } from '../types/chat.types';
 
 interface ChatState {
     selectedProjectId: string | null;
@@ -10,8 +10,10 @@ interface ChatState {
     unreadCounts: Map<string, number>;
     lastMessageAt: Map<string, number>;
     typingUsers: Set<string>;
-    isSidebarOpen: boolean;
+    replyingToMessage: Message | null;
+    setReplyingToMessage: (message: Message | null) => void;
 
+    isSidebarOpen: boolean;
     setSelectedProject: (projectId: string | null) => void;
     setSelectedUser: (userId: string | null, user: User | null) => void;
     setProjects: (projects: Project[]) => void;
@@ -37,9 +39,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     unreadCounts: new Map(),
     lastMessageAt: new Map(),
     typingUsers: new Set(),
+    replyingToMessage: null,
     isSidebarOpen: true,
 
-    setSelectedProject: (projectId) =>
+    setReplyingToMessage: (message) => set({ replyingToMessage: message }),
+
+    setSelectedProject: (projectId,
+        // state type check might fail on implicit any for projectId if not careful, but keeping original style
+    ) =>
         set({
             selectedProjectId: projectId,
             selectedUserId: null,

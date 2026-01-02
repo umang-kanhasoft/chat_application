@@ -1,4 +1,3 @@
-import { useAuthStore } from '../../store/authStore';
 import { useChatStore } from '../../store/chatStore';
 import { ProjectSelector } from '../user/ProjectSelector';
 import { UserList } from '../user/UserList';
@@ -8,7 +7,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onSelectUser }: SidebarProps) {
-    const { currentUserName } = useAuthStore();
     const { selectedProjectId } = useChatStore();
 
     return (

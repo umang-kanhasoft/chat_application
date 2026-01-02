@@ -124,8 +124,8 @@ class CallService {
         };
 
         pc.ontrack = (event) => {
-            event.track.onmute = () => {};
-            event.track.onunmute = () => {};
+            event.track.onmute = () => { };
+            event.track.onunmute = () => { };
 
             // Handle track ended unexpectedly (e.g., remote muted/unplugged)
             event.track.onended = () => {
@@ -483,7 +483,7 @@ class CallService {
 
         try {
             await this.ensureLocalStream();
-        } catch (error) {
+        } catch {
             state.setError('Camera/microphone permission denied');
             this.cleanupAndReset();
             return;

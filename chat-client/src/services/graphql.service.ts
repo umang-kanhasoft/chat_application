@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore';
 
 type GraphQLResponse<TData> = {
     data?: TData;
-    errors?: Array<{ message?: string } & Record<string, any>>;
+    errors?: Array<{ message?: string } & Record<string, unknown>>;
 };
 
 export class GraphQLRequestError extends Error {
@@ -30,7 +30,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function graphqlFetch<
     TData = unknown,
-    TVariables extends Record<string, any> = Record<string, any>,
+    TVariables extends Record<string, unknown> = Record<string, unknown>,
 >(
     query: string,
     variables?: TVariables,
@@ -113,8 +113,8 @@ export async function graphqlFetch<
             }
 
             return (parsed?.data ?? ({} as TData)) as TData;
-        } catch (err: any) {
-            const isAbort = err?.name === 'AbortError';
+        } catch (err: unknown) {
+            const isAbort = err instanceof Error && err.name === 'AbortError';
             const isNetwork = err instanceof TypeError;
             const canRetry = (isAbort || isNetwork) && attempt < retries;
             if (canRetry) {

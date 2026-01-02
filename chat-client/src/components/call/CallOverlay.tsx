@@ -14,10 +14,8 @@ export function CallOverlay() {
     const { status, peer, localStream, remoteStream, isMicMuted, isCameraOff, startedAt, error } =
         useCallStore();
 
-    const [tick, setTick] = useState(0);
+    const [now, setNow] = useState(() => Date.now());
     const [isRemoteMuted, setIsRemoteMuted] = useState(true);
-
-    const now = useMemo(() => Date.now(), [tick]);
 
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -26,7 +24,7 @@ export function CallOverlay() {
         if (status !== 'IN_CALL') return;
 
         const id = setInterval(() => {
-            setTick((t) => t + 1);
+            setNow(Date.now());
         }, 500);
 
         return () => clearInterval(id);

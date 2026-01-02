@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TYPING_CONFIG } from '../constants/config';
 import { wsService } from '../services/websocket.service';
+import { graphqlFetch } from '../services/graphql.service';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import { MessageStatus, SocketEventType, type Attachment, type Message } from '../types/chat.types';
@@ -88,7 +89,7 @@ export function useChat() {
 
     // Send message
     const sendMessage = useCallback(
-        (content: string, attachments?: unknown[], tempId?: string) => {
+        (content: string, attachments?: unknown[], tempId?: string, replyTo?: Message | null) => {
             if (
                 !currentUserId ||
                 !selectedUserId ||
@@ -135,7 +136,21 @@ export function useChat() {
                     timestamp: new Date().toISOString(),
                     status: MessageStatus.PENDING,
                     attachments: attachments ? (attachments as Attachment[]) : undefined,
+                    replyToId: replyTo?.id,
+                    replyTo: replyTo ? {
+                        id: replyTo.id,
+                        content: replyTo.content,
+                        sender: { name: 'You' } // Or look up name if possible, but 'You' or actual replyTo logic is better if we have the object.
+                        // Actually MessageInput passes the original message. So replyTo.sender.name is correct.
+                        // Wait, replyTo passed from MessageInput is the message being replied TO.
+                    } : null
                 };
+                // Fix: Use the sender name from the replyTo object passed in
+                if (optimisticMessage.replyTo && replyTo) {
+                    optimisticMessage.replyTo.sender = { name: replyTo.sender?.name || 'User' }; // Basic stub if missing
+                    // Ideally replyTo has sender expanded
+                }
+
                 didAppendNew = true;
                 return [...prev, optimisticMessage];
             });
@@ -164,11 +179,71 @@ export function useChat() {
                     projectId: selectedProjectId ?? null,
                     content: trimmedContent,
                     attachments,
+                    replyToId: replyTo?.id,
                 },
             });
             return true;
         },
         [currentUserId, selectedUserId, selectedProjectId, bumpLastMessageAt],
+    );
+
+    const addReaction = useCallback(
+        async (messageId: string, emoji: string) => {
+            if (!currentUserId) return;
+
+            setMessages((prev) => {
+                const index = prev.findIndex((m) => m.id === messageId);
+                if (index === -1) return prev;
+
+                const msg = prev[index];
+                const reactions = msg.reactions ? [...msg.reactions] : [];
+                const existingIdx = reactions.findIndex((r) => r.emoji === emoji);
+
+                if (existingIdx > -1) {
+                    const reaction = { ...reactions[existingIdx] };
+                    const hasReacted = reaction.userIds.includes(currentUserId);
+
+                    if (hasReacted) {
+                        reaction.userIds = reaction.userIds.filter(id => id !== currentUserId);
+                        reaction.count--;
+                        if (reaction.count === 0) {
+                            reactions.splice(existingIdx, 1);
+                        } else {
+                            reactions[existingIdx] = reaction;
+                        }
+                    } else {
+                        reaction.userIds = [...reaction.userIds, currentUserId];
+                        reaction.count++;
+                        reactions[existingIdx] = reaction;
+                    }
+                } else {
+                    reactions.push({
+                        emoji,
+                        count: 1,
+                        userIds: [currentUserId],
+                    });
+                }
+
+                const next = [...prev];
+                next[index] = { ...msg, reactions };
+                return next;
+            });
+
+            try {
+                const mutation = `
+                    mutation AddReaction($messageId: ID!, $emoji: String!) {
+                        addReaction(messageId: $messageId, emoji: $emoji) {
+                            success
+                        }
+                    }
+                `;
+                await graphqlFetch(mutation, { messageId, emoji });
+            } catch (error) {
+                console.error('Failed to add reaction', error);
+                // TODO: Revert optimistic update?
+            }
+        },
+        [currentUserId]
     );
 
     const requestMessageHistory = useCallback(
@@ -288,7 +363,8 @@ export function useChat() {
 
         // Message received handler
         const unsubMessageReceived = wsService.on(SocketEventType.MESSAGE_RECEIVED, (message) => {
-            const msg: Message = message.payload;
+            const msg = message.payload as Message | undefined;
+            if (!msg) return;
 
             // Only handle messages for current project
             if ((msg.projectId ?? null) !== (selectedProjectId ?? null)) {
@@ -351,9 +427,9 @@ export function useChat() {
                     if (index > -1) {
                         const newMessages = [...prev];
                         const prevMsg = newMessages[index];
-                        const isStillUploading = msg.attachments?.some(
-                            (a: any) => a?.url === 'uploading',
-                        );
+                        const isStillUploading = (
+                            msg.attachments as Array<{ url?: string }> | undefined
+                        )?.some((a) => a?.url === 'uploading');
                         newMessages[index] = {
                             ...msg,
                             status: msg.status || MessageStatus.SENT,
@@ -376,9 +452,17 @@ export function useChat() {
 
         // Message history handler
         const unsubMessageHistory = wsService.on(SocketEventType.MESSAGE_HISTORY, (message) => {
-            const history: Message[] = message.payload.messages || [];
-            const page = Number(message.payload.page || 1);
-            const totalPages = Number(message.payload.totalPages || 1);
+            const payload = message.payload as
+                | {
+                    messages?: Message[];
+                    page?: number;
+                    totalPages?: number;
+                }
+                | undefined;
+
+            const history: Message[] = payload?.messages || [];
+            const page = Number(payload?.page || 1);
+            const totalPages = Number(payload?.totalPages || 1);
 
             setHistoryPage(page);
             setHistoryTotalPages(totalPages);
@@ -472,7 +556,9 @@ export function useChat() {
 
         // Message read handler
         const unsubMessageRead = wsService.on(SocketEventType.MESSAGE_READ, (message) => {
-            const { messageIds } = message.payload;
+            const payload = message.payload as { messageIds?: string[] } | undefined;
+            const messageIds = payload?.messageIds || [];
+            if (messageIds.length === 0) return;
 
             // Update message statuses
             setMessages((prev) =>
@@ -484,7 +570,9 @@ export function useChat() {
 
         // Message delivered handler
         const unsubMessageDelivered = wsService.on(SocketEventType.MESSAGE_DELIVERED, (message) => {
-            const { messageIds } = message.payload;
+            const payload = message.payload as { messageIds?: string[] } | undefined;
+            const messageIds = payload?.messageIds || [];
+            if (messageIds.length === 0) return;
 
             // Update message statuses
             setMessages((prev) =>
@@ -515,9 +603,17 @@ export function useChat() {
 
     // Load history when selected user changes
     useEffect(() => {
-        if (selectedUserId && currentUserId) {
+        if (!selectedUserId || !currentUserId) return;
+
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (cancelled) return;
             loadMessageHistory();
-        }
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [selectedUserId, selectedProjectId, currentUserId, loadMessageHistory]);
 
     // Mark messages as read when window gains focus

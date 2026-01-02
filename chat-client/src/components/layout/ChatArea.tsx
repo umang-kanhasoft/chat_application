@@ -21,6 +21,7 @@ export function ChatArea() {
         forceScrollToBottomToken,
         initialTopMostItemIndex,
         unreadAnchorMessageId,
+        addReaction,
     } = useChat();
 
     if (!selectedUserId) {
@@ -45,6 +46,7 @@ export function ChatArea() {
                 forceScrollToBottomToken={forceScrollToBottomToken}
                 initialTopMostItemIndex={initialTopMostItemIndex}
                 unreadAnchorMessageId={unreadAnchorMessageId}
+                onReaction={addReaction}
             />
             <TypingIndicator />
             <MessageInput

@@ -45,6 +45,9 @@ Message.belongsTo(User, { foreignKey: 'receiver_id', as: 'receiver' });
 Message.hasMany(Attachment, { foreignKey: 'message_id', as: 'attachments' });
 Attachment.belongsTo(Message, { foreignKey: 'message_id', as: 'message' });
 
+// Message Reply (Self-Referential)
+Message.belongsTo(Message, { foreignKey: 'replyToId', as: 'replyTo' });
+
 // User <-> Bid
 User.hasMany(Bid, { foreignKey: 'user_id', as: 'bids' });
 Bid.belongsTo(User, { foreignKey: 'user_id', as: 'user' });

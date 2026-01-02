@@ -1,4 +1,10 @@
 export const typeDefs = `#graphql
+    type Reaction {
+        emoji: String!
+        count: Int!
+        userIds: [ID!]!
+    }
+
     type Message {
         id: ID!
         content: String!
@@ -7,6 +13,9 @@ export const typeDefs = `#graphql
         receiver_id: ID!
         receiver: User!
         project_id: ID!
+        replyToId: ID
+        replyTo: Message
+        reactions: [Reaction]
         project: Project!
         createdAt: String!
         updatedAt: String!
@@ -17,6 +26,7 @@ export const typeDefs = `#graphql
         sender_id: ID!
         receiver_id: ID!
         project_id: ID!
+        replyToId: ID
     }
 
     type Query {
@@ -27,5 +37,6 @@ export const typeDefs = `#graphql
     type Mutation {
         createMessage(data: MessageInput!): Message!
         updateMessage(id: ID!, data: MessageInput!): Message!
+        addReaction(messageId: ID!, emoji: String!): Message!
     }
 `;

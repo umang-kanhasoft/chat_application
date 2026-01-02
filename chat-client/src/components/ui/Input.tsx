@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'react';
 import { cn } from '../../utils/helpers';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -10,7 +10,8 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
     ({ className, error, label, icon, iconPosition = 'left', type = 'text', id, ...props }, ref) => {
-        const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+        const generatedId = useId();
+        const inputId = id ?? `input-${generatedId}`;
 
         return (
             <div className="w-full">
@@ -64,7 +65,8 @@ interface TextareaProps extends InputHTMLAttributes<HTMLTextAreaElement> {
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     ({ className, label, error, id, rows = 4, ...props }, ref) => {
-        const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+        const generatedId = useId();
+        const textareaId = id ?? `textarea-${generatedId}`;
 
         return (
             <div className="w-full">

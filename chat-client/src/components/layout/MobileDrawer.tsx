@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useAuthStore } from '../../store/authStore';
+
+type AppView = 'auth' | 'onboarding' | 'dashboard' | 'projects' | 'chat';
 
 interface MobileDrawerProps {
     isOpen: boolean;
     onClose: () => void;
-    currentView: string;
-    setCurrentView: (view: any) => void;
+    currentView: AppView;
+    setCurrentView: Dispatch<SetStateAction<AppView>>;
     userName: string;
     onEditProfile: () => void;
     onManageSkills: () => void;
@@ -37,7 +39,7 @@ export function MobileDrawer({
 
     if (!isOpen) return null;
 
-    const navItems = [
+    const navItems: Array<{ id: AppView; label: string; icon: ReactNode }> = [
         {
             id: 'dashboard', label: 'Dashboard', icon: (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,7 +70,7 @@ export function MobileDrawer({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] md:hidden">
+        <div className="fixed inset-0 z-100 md:hidden">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/20 backdrop-blur-sm animate-fade-in"
@@ -118,7 +120,7 @@ export function MobileDrawer({
                         {/* We reuse portions of Profile logic here or just a simpler view */}
                         <div className="bg-gray-50 rounded-2xl p-4">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-primary-dark flex items-center justify-center text-white ring-2 ring-white shadow-sm">
+                                <div className="w-10 h-10 rounded-full bg-linear-to-tr from-primary to-primary-dark flex items-center justify-center text-white ring-2 ring-white shadow-sm">
                                     <span className="text-sm font-semibold">{userName?.[0]?.toUpperCase() || 'U'}</span>
                                 </div>
                                 <div>

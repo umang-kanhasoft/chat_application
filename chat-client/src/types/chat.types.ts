@@ -90,24 +90,38 @@ export interface Attachment {
     uploadEtaSeconds?: number | null;
 }
 
+export interface Reaction {
+    emoji: string;
+    count: number;
+    userIds: string[];
+}
+
 export interface Message {
     id: string;
     clientMsgId?: string;
     projectId: string | null;
     sender_id: string;
+    sender?: { name: string; avatar?: string };
     receiver_id?: string;
     content: string;
     timestamp: string;
     status: MessageStatus;
     createdAt?: string;
     attachments?: Attachment[];
+    reactions?: Reaction[];
+    replyToId?: string;
+    replyTo?: {
+        id: string;
+        content: string;
+        sender: { name: string };
+    } | null;
     uploadProgress?: number;
     uploadEtaSeconds?: number | null;
 }
 
 export interface SocketMessage {
     type: SocketEventType;
-    payload?: any;
+    payload?: unknown;
     timestamp?: Date;
 }
 

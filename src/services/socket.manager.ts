@@ -302,6 +302,7 @@ class SocketManager {
                             content,
                             attachments,
                             clientMsgId,
+                            replyToId,
                         } = message.payload;
                         const projectId: string | null = rawProjectId ?? null;
 
@@ -331,6 +332,7 @@ class SocketManager {
                                 status: 'SENT',
                                 createdAt: nowIso,
                                 attachments: Array.isArray(attachments) ? attachments : [],
+                                replyToId,
                             };
 
                             socket.emit('message', {
@@ -356,6 +358,7 @@ class SocketManager {
                                 clientMsgId,
                                 receiverOnline,
                                 socket.userName,
+                                replyToId,
                             );
 
                             socket.emit('message', {

@@ -55,7 +55,7 @@ export function ManageSkillsModal({ isOpen, onClose }: ManageSkillsModalProps) {
             const userSkillIds = new Set((data.userSkillsByUserId || []).map(us => us.skill_id));
             setSelectedSkills(userSkillIds);
             setInitialSkills(new Set(userSkillIds)); // Clone to compare later
-        } catch (err) {
+        } catch {
             setError('Failed to load skills. Please try again.');
         } finally {
             setIsLoading(false);
@@ -120,7 +120,7 @@ export function ManageSkillsModal({ isOpen, onClose }: ManageSkillsModalProps) {
 
             await Promise.all(promises);
             onClose();
-        } catch (err) {
+        } catch {
             setError('Failed to save changes. Please try again.');
         } finally {
             setIsSaving(false);
@@ -134,7 +134,7 @@ export function ManageSkillsModal({ isOpen, onClose }: ManageSkillsModalProps) {
     );
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 md:p-8 animate-fade-in flex flex-col max-h-[90vh]">

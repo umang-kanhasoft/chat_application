@@ -64,8 +64,12 @@ export function BidFormModal({ project, userId, onClose, onSuccess }: BidFormMod
             if (!data.createBid?.id) throw new Error('Failed to submit bid');
 
             onSuccess();
-        } catch (error: any) {
-            setErrors({ submit: error.message || 'Failed to submit bid. Please try again.' });
+        } catch (error: unknown) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to submit bid. Please try again.';
+            setErrors({ submit: message });
         } finally {
             setIsSubmitting(false);
         }

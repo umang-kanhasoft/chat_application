@@ -40,6 +40,7 @@ export class ChatService {
         clientMsgId?: string,
         isReceiverOnline?: boolean,
         senderName?: string,
+        replyToId?: string,
     ) {
         try {
             this.maybeCleanupClientMsgIdMap();
@@ -63,6 +64,8 @@ export class ChatService {
                         receiver_id: receiver_id,
                         project_id: projectId,
                         status: MESSAGE_STATUS.SENT,
+                        replyToId: replyToId || null,
+                        reactions: [],
                     },
                     { returning: true },
                 );
@@ -153,11 +156,13 @@ export class ChatService {
                 status: message.status,
                 createdAt: message.createdAt,
                 attachments: responseAttachments,
+                replyToId: message.replyToId,
+                reactions: message.reactions || [],
             };
 
             if (isReceiverOnline && payload.status !== MESSAGE_STATUS.DELIVERED) {
-                // Persist delivered status without blocking message fanout.
-                void message.update({ status: MESSAGE_STATUS.DELIVERED });
+                // Persist delivered status so history/status stays consistent.
+                await message.update({ status: MESSAGE_STATUS.DELIVERED });
                 payload.status = MESSAGE_STATUS.DELIVERED;
             }
 
@@ -204,6 +209,12 @@ export class ChatService {
             include: [
                 { model: User, as: 'sender', attributes: ['id', 'name'] },
                 { model: Attachment, as: 'attachments' },
+                {
+                    model: Message,
+                    as: 'replyTo',
+                    attributes: ['id', 'content', 'sender_id'],
+                    include: [{ model: User, as: 'sender', attributes: ['name'] }],
+                },
             ],
             order: [['createdAt', 'DESC']],
             limit,
@@ -219,6 +230,15 @@ export class ChatService {
             projectId: message.project_id,
             status: message.status || 'SENT',
             createdAt: message.createdAt,
+            replyToId: message.replyToId,
+            reactions: message.reactions || [],
+            replyTo: message.replyTo
+                ? {
+                      id: message.replyTo.id,
+                      content: message.replyTo.content,
+                      sender: { name: message.replyTo.sender?.name },
+                  }
+                : null,
             attachments:
                 message.attachments?.map((att: any) => ({
                     id: att.id,
@@ -427,6 +447,12 @@ export class ChatService {
             return acc;
         }, {});
 
+        // Invalidate chat caches so subsequent history loads reflect READ status.
+        await cacheService.invalidateUserChats(userId);
+        for (const senderId of Object.keys(notifications)) {
+            await cacheService.invalidateUserChats(senderId);
+        }
+
         return notifications;
     }
 
@@ -460,6 +486,12 @@ export class ChatService {
             acc[msg.sender_id].push(msg.id);
             return acc;
         }, {});
+
+        // Invalidate chat caches so subsequent history loads reflect DELIVERED status.
+        await cacheService.invalidateUserChats(userId);
+        for (const senderId of Object.keys(notifications)) {
+            await cacheService.invalidateUserChats(senderId);
+        }
 
         return notifications;
     }
