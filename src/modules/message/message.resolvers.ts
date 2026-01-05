@@ -3,6 +3,8 @@ import { CreateMessageInput, UpdateMessageInput } from '../../graphql/schema/mes
 import Message from '../../models/Message';
 import Project from '../../models/Project';
 import User from '../../models/User';
+import SocketManager from '../../services/socket.manager';
+import { SocketEventType } from '../../types/socket.types';
 import toIsoString from '../../utils/convertDate';
 
 interface MessageArgs {
@@ -102,8 +104,40 @@ export default {
             }
 
             // Sequelize JSONB update requires explict setChanged or new array ref
-            message.reactions = [...reactions];
-            await message.save(); // or message.update({ reactions })
+            // Deep clone to ensure Sequelize detects the change and doesn't rely on shared references
+            const updatedReactions = JSON.parse(JSON.stringify(reactions));
+
+            // Use static update to force DB write, bypassing instance dirty checking
+            await Message.update(
+                { reactions: updatedReactions },
+                { where: { id: messageId } }
+            );
+
+            message.reactions = updatedReactions; // Update local instance for return
+
+            // Broadcast reaction update
+            const otherUserId = message.sender_id === userId ? message.receiver_id : message.sender_id;
+
+            // Notify the other user
+            SocketManager.sendToUser(otherUserId, {
+                type: SocketEventType.REACTION_ADDED,
+                payload: {
+                    messageId: message.id,
+                    reactions: message.reactions,
+                    updatedBy: userId
+                }
+            });
+
+            // Notify current user (multi-device sync)
+            SocketManager.sendToUser(userId, {
+                type: SocketEventType.REACTION_ADDED,
+                payload: {
+                    messageId: message.id,
+                    reactions: message.reactions,
+                    updatedBy: userId
+                }
+            });
+
             return message;
         }
     },

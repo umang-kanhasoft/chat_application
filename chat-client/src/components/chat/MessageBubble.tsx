@@ -1,9 +1,13 @@
+import { AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { useAuthStore } from '../../store/authStore';
 import { MessageStatus, type Message } from '../../types/chat.types';
 import { cn, formatMessageTime, getStatusIcon } from '../../utils/helpers';
-import { ImageModal } from './ImageModal';
-import { UploadingPlaceholder } from './UploadingPlaceholder';
 import { AttachmentGalleryModal } from './AttachmentGalleryModal';
+import { ImageModal } from './ImageModal';
+import { ReactionDetailsModal } from './ReactionDetailsModal';
+import { ReactionPicker } from './ReactionPicker';
+import { UploadingPlaceholder } from './UploadingPlaceholder';
 
 interface MessageBubbleProps {
     message: Message;
@@ -16,6 +20,10 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReaction }: MessageBubbleProps) {
     const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
     const [showGallery, setShowGallery] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [showReactionDetails, setShowReactionDetails] = useState(false);
+    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+    const { currentUserId } = useAuthStore();
 
     // ...
 
@@ -26,6 +34,13 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
         e.stopPropagation();
         if (onReaction) {
             onReaction(message.id, '❤️'); // Default heart
+        }
+    };
+
+    const handleReactionSelect = (emoji: string) => {
+        if (onReaction) {
+            onReaction(message.id, emoji);
+            setIsHovered(false);
         }
     };
 
@@ -42,8 +57,17 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
     const imageAttachments = attachments.filter((a) => a.mime_type.startsWith('image/'));
     const nonImageAttachments = attachments.filter((a) => !a.mime_type.startsWith('image/'));
 
+    // Long press logic
+    const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchStart(e.targetTouches[0].clientX);
+
+        // Start long press timer
+        const timer = setTimeout(() => {
+            setIsHovered(true); // Show picker on long press
+        }, 500); // 500ms for long press
+        setLongPressTimer(timer);
     };
 
     const onTouchMove = (e: React.TouchEvent) => {
@@ -51,16 +75,25 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
         const currentTouch = e.targetTouches[0].clientX;
         const diff = currentTouch - touchStart;
 
-        // Only allow Right Swipe (and only if not sent by me? Actually WhatsApp allows swipe reply on all)
+        // Cancel long press if moving
+        if (Math.abs(diff) > 10 && longPressTimer) {
+            clearTimeout(longPressTimer);
+            setLongPressTimer(null);
+        }
+
         if (diff > 0 && diff < 100) {
             setSwipeOffset(diff);
         }
     };
 
     const onTouchEnd = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            setLongPressTimer(null);
+        }
+
         if (!touchStart) return;
         if (swipeOffset > minSwipeDistance) {
-            // Trigger Reply
             onReply?.(message);
         }
         setSwipeOffset(0);
@@ -202,14 +235,23 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
                 className={`
                         max-w-[85%] md:max-w-[70%] rounded-xl shadow-sm relative group
                         ${isSent
-                        ? 'bg-primary text-white rounded-tr-none' // WhatsApp-like: Sent top-right corner square? Usually Sent is Right-side. Rounded corners usually: Top-Left, Bottom-Left, Bottom-Right (Tip).
-                        : 'bg-white text-gray-900 rounded-tl-none shadow' // Received: Left-side. Top-Right, Bottom-Right, Bottom-Left.
-                    // Actually sticking to current rounding style but tightening padding
+                        ? 'bg-primary text-white rounded-tr-none'
+                        : 'bg-white text-gray-900 rounded-tl-none shadow'
                     }
                      ${hasSingleImageNoText ? 'p-1' : 'px-1.5 py-1.5'}
                     `}
                 onDoubleClick={handleDoubleTap}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
             >
+                <AnimatePresence>
+                    {isHovered && (
+                        <ReactionPicker
+                            onSelect={handleReactionSelect}
+                            className={isSent ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left'}
+                        />
+                    )}
+                </AnimatePresence>
                 <div className="flex flex-col gap-1">
                     {/* Reply Preview */}
                     {message.replyTo && (
@@ -340,11 +382,18 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
             {message.reactions && message.reactions.length > 0 && (
                 <div
                     className={cn(
-                        "absolute -bottom-2 z-10 flex gap-0.5",
+                        "absolute -bottom-2 z-20 flex gap-0.5",
                         isSent ? "right-2" : "left-2"
                     )}
                 >
-                    <div className="bg-white rounded-full shadow-sm border border-gray-100 px-1.5 py-0.5 flex items-center gap-1 text-[10px] text-gray-700">
+                    <div
+                        className="bg-white rounded-full shadow-sm border border-gray-100 px-1.5 py-0.5 flex items-center gap-1 text-[10px] text-gray-700 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setAnchorRect(e.currentTarget.getBoundingClientRect());
+                            setShowReactionDetails(true);
+                        }}
+                    >
                         {message.reactions.map((reaction, i) => (
                             <span key={i} className="flex items-center gap-0.5">
                                 <span>{reaction.emoji}</span>
@@ -371,6 +420,16 @@ export function MessageBubble({ message, isSent, onMediaLoad, onReply, onReactio
                     onImageClick={(url, name) => {
                         setSelectedImage({ url, name });
                     }}
+                />
+            )}
+
+            {showReactionDetails && (
+                <ReactionDetailsModal
+                    reactions={message.reactions || []}
+                    onClose={() => setShowReactionDetails(false)}
+                    anchorRect={anchorRect}
+                    currentUserId={currentUserId}
+                    message={message}
                 />
             )}
         </div>

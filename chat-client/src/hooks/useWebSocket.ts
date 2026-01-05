@@ -162,7 +162,10 @@ export function useWebSocket() {
         // User offline handler
         const unsubUserOffline = wsService.on(SocketEventType.USER_OFFLINE, (message) => {
             const { userId } = message.payload;
-            setUserStatusRef.current(userId, false, new Date());
+            const lastSeen = message.payload.lastSeen
+                ? new Date(message.payload.lastSeen)
+                : new Date();
+            setUserStatusRef.current(userId, false, lastSeen);
         });
 
         // User projects handler
@@ -186,7 +189,7 @@ export function useWebSocket() {
         // Project users handler
         const unsubProjectUsers = wsService.on(SocketEventType.PROJECT_USERS, (message) => {
             // Only apply if this response matches the currently selected project.
-            const responseProjectId = (message.payload?.projectId || null) as string | null;
+            const responseProjectId = message.payload.projectId ?? null;
             const currentProjectId = selectedProjectIdRef.current ?? null;
             if (responseProjectId !== currentProjectId) return;
             setProjectUsersRef.current(message.payload.users);
@@ -202,7 +205,8 @@ export function useWebSocket() {
         // Typing start handler
         const unsubTypingStart = wsService.on(SocketEventType.TYPING_START, (message) => {
             const { userId } = message.payload;
-            const incomingProjectId = (message.payload?.projectId ?? null) as string | null;
+            if (!userId) return;
+            const incomingProjectId = message.payload.projectId ?? null;
             const currentProjectId = selectedProjectIdRef.current ?? null;
             if (incomingProjectId !== currentProjectId) return;
             setUserTypingRef.current(userId, true);
@@ -211,7 +215,8 @@ export function useWebSocket() {
         // Typing stop handler
         const unsubTypingStop = wsService.on(SocketEventType.TYPING_STOP, (message) => {
             const { userId } = message.payload;
-            const incomingProjectId = (message.payload?.projectId ?? null) as string | null;
+            if (!userId) return;
+            const incomingProjectId = message.payload.projectId ?? null;
             const currentProjectId = selectedProjectIdRef.current ?? null;
             if (incomingProjectId !== currentProjectId) return;
             setUserTypingRef.current(userId, false);

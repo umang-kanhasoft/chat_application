@@ -376,18 +376,34 @@ class SocketManager {
                             // Send Push Notification
                             if (sentMessage) {
                                 // Don't await this, let it run in background to avoid blocking the socket loop
-                                fcmService.sendNotification(receiver_id, {
-                                    title: `New message from ${socket.userName || 'User'}`,
-                                    body: content || (attachments?.length ? 'Sent an attachment' : 'New message'),
-                                    data: {
-                                        type: 'NEW_MESSAGE',
-                                        messageId: sentMessage.id,
+                                log.info(
+                                    {
+                                        receiverId: receiver_id,
                                         senderId: authenticatedUserId,
-                                        projectId: projectId || '',
+                                        messageId: sentMessage.id,
                                     },
-                                }).catch(err => log.error({ err }, 'Failed to send notification'));
+                                    'Sending FCM notification for new message',
+                                );
+                                fcmService
+                                    .sendNotification(receiver_id, {
+                                        title: `New message from ${socket.userName || 'User'}`,
+                                        body:
+                                            content ||
+                                            (attachments?.length
+                                                ? 'Sent an attachment'
+                                                : 'New message'),
+                                        data: {
+                                            type: 'NEW_MESSAGE',
+                                            messageId: sentMessage.id,
+                                            senderId: authenticatedUserId,
+                                            projectId: projectId || '',
+                                            url: '/',
+                                        },
+                                    })
+                                    .catch((err) =>
+                                        log.error({ err }, 'Failed to send notification'),
+                                    );
                             }
-
                         } catch (error) {
                             log.error({ err: error }, 'Error persisting chat message');
                             Sentry.captureException(error, {
@@ -409,6 +425,14 @@ class SocketManager {
                         if (!authenticatedUserId) return;
                         const { token, platform } = message.payload;
                         if (token) {
+                            log.info(
+                                {
+                                    userId: authenticatedUserId,
+                                    platform,
+                                    tokenPrefix: token.slice(0, 12),
+                                },
+                                'Registering device token',
+                            );
                             await fcmService.registerDevice(authenticatedUserId, token, platform);
                         }
                         break;

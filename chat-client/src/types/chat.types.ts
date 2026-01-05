@@ -13,6 +13,9 @@ export const SocketEventType = {
     MARK_AS_READ: 'mark_as_read',
     MESSAGE_DELIVERED: 'message_delivered',
 
+    // Message Reactions
+    REACTION_ADDED: 'reaction_added',
+
     // Project Users
     GET_PROJECT_USERS: 'get_project_users',
     PROJECT_USERS: 'project_users',
@@ -54,6 +57,90 @@ export const SocketEventType = {
 } as const;
 
 export type SocketEventType = (typeof SocketEventType)[keyof typeof SocketEventType];
+
+export type SocketEventPayloadMap = {
+    [SocketEventType.AUTH]: { userId: string };
+    [SocketEventType.AUTH_SUCCESS]: { userId: string; userName: string };
+    [SocketEventType.AUTH_FAILED]: unknown;
+
+    [SocketEventType.MESSAGE_SEND]: {
+        clientMsgId?: string;
+        receiver_id?: string;
+        projectId?: string | null;
+        content?: string;
+        attachments?: unknown;
+        replyToId?: string;
+    };
+    [SocketEventType.MESSAGE_RECEIVED]: Message;
+    [SocketEventType.MESSAGE_HISTORY]:
+    | {
+        projectId?: string | null;
+        receiverId?: string;
+        page?: number;
+        limit?: number;
+    }
+    | {
+        messages?: Message[];
+        page?: number;
+        totalPages?: number;
+    };
+    [SocketEventType.MESSAGE_READ]: { messageIds?: string[] };
+    [SocketEventType.MARK_AS_READ]: { messageIds?: string[] };
+    [SocketEventType.MESSAGE_DELIVERED]: { messageIds?: string[] };
+
+    [SocketEventType.REACTION_ADDED]: {
+        messageId: string;
+        reactions: {
+            emoji: string;
+            count: number;
+            userIds: string[];
+        }[];
+        updatedBy: string;
+    };
+
+    [SocketEventType.GET_PROJECT_USERS]: { projectId: string };
+    [SocketEventType.PROJECT_USERS]: { projectId?: string | null; users: User[] };
+    [SocketEventType.GET_USER_PROJECTS]: Record<string, never>;
+    [SocketEventType.USER_PROJECTS]: { projects: Project[] };
+
+    [SocketEventType.GET_GLOBAL_USERS]: Record<string, never>;
+    [SocketEventType.GLOBAL_USERS]: { users: User[] };
+
+    [SocketEventType.USER_ONLINE]: { userId: string };
+    [SocketEventType.USER_OFFLINE]: { userId: string; lastSeen?: string };
+    [SocketEventType.ONLINE_USERS]: { users: string[] };
+
+    [SocketEventType.TYPING_START]: { userId?: string; projectId?: string | null };
+    [SocketEventType.TYPING_STOP]: { userId?: string; projectId?: string | null };
+
+    [SocketEventType.HEARTBEAT]: Record<string, never>;
+
+    [SocketEventType.CALL_START]: { callId: string; toUserId: string };
+    [SocketEventType.CALL_RINGING]: { callId?: string; fromUserId?: string; fromUserName?: string };
+    [SocketEventType.CALL_ACCEPT]: { callId?: string };
+    [SocketEventType.CALL_REJECT]: { callId?: string; reason?: string };
+    [SocketEventType.CALL_BUSY]: { callId?: string };
+    [SocketEventType.CALL_OFFER]: {
+        callId?: string;
+        fromUserId?: string;
+        sdp?: RTCSessionDescriptionInit;
+    };
+    [SocketEventType.CALL_ANSWER]: {
+        callId?: string;
+        fromUserId?: string;
+        sdp?: RTCSessionDescriptionInit;
+    };
+    [SocketEventType.CALL_ICE_CANDIDATE]: {
+        callId?: string;
+        fromUserId?: string;
+        candidate?: RTCIceCandidateInit;
+    };
+    [SocketEventType.CALL_END]: { callId?: string; reason?: string };
+
+    [SocketEventType.ERROR]: unknown;
+
+    [SocketEventType.REGISTER_DEVICE]: { token: string; platform: string };
+};
 
 export const MessageStatus = {
     PENDING: 'PENDING',
@@ -119,11 +206,11 @@ export interface Message {
     uploadEtaSeconds?: number | null;
 }
 
-export interface SocketMessage {
-    type: SocketEventType;
-    payload?: unknown;
+export type SocketMessage<TType extends SocketEventType = SocketEventType> = {
+    type: TType;
+    payload: SocketEventPayloadMap[TType];
     timestamp?: Date;
-}
+};
 
 export const ConnectionStatus = {
     DISCONNECTED: 'disconnected',

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { config } from '../constants/config';
 
 const firebaseConfig = {
@@ -9,10 +9,42 @@ const firebaseConfig = {
     storageBucket: config.firebase.storageBucket,
     messagingSenderId: config.firebase.messagingSenderId,
     appId: config.firebase.appId,
-    measurementId: config.firebase.measurementId
+    measurementId: config.firebase.measurementId,
 };
 
 const app = initializeApp(firebaseConfig);
+
+let swRegistrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+
+/**
+ * Register the Firebase messaging service worker and inject config at runtime.
+ * This avoids hardcoding credentials in the public SW file.
+ */
+export async function registerFirebaseMessagingSW() {
+    if (swRegistrationPromise) return swRegistrationPromise;
+
+    swRegistrationPromise = (async () => {
+        if (!('serviceWorker' in navigator)) {
+            console.warn('[SW] Service workers are not supported');
+            return null;
+        }
+
+        try {
+            const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+            try {
+                await reg.update();
+            } catch {
+                // ignore
+            }
+            return await navigator.serviceWorker.ready;
+        } catch (err) {
+            console.error('[SW] Firebase messaging SW registration failed:', err);
+            return null;
+        }
+    })();
+
+    return swRegistrationPromise;
+}
 
 export const requestForToken = async () => {
     try {
@@ -22,9 +54,12 @@ export const requestForToken = async () => {
             return null;
         }
 
+        const swRegistration = await registerFirebaseMessagingSW();
+
         const messaging = getMessaging(app);
         const currentToken = await getToken(messaging, {
-            vapidKey: config.firebase.vapidKey
+            vapidKey: config.firebase.vapidKey,
+            serviceWorkerRegistration: swRegistration ?? undefined,
         });
 
         if (currentToken) {
@@ -39,17 +74,12 @@ export const requestForToken = async () => {
     }
 };
 
-export const onMessageListener = () => {
-    return new Promise((resolve) => {
-        isSupported().then(supported => {
-            if (supported) {
-                const messaging = getMessaging(app);
-                import('firebase/messaging').then(({ onMessage }) => {
-                    onMessage(messaging, (payload) => {
-                        resolve(payload);
-                    });
-                });
-            }
-        });
+export async function subscribeToForegroundMessages(handler: (payload: unknown) => void) {
+    const supported = await isSupported();
+    if (!supported) return () => {};
+
+    const messaging = getMessaging(app);
+    return onMessage(messaging, (payload) => {
+        handler(payload);
     });
-};
+}

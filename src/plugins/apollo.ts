@@ -58,10 +58,13 @@ const startGraphQL: FastifyPluginAsync = async (fastify) => {
             preValidation: [authMiddleware],
             handler: fastifyApolloHandler(server, {
                 // Access your Sequelize models or User from the request
-                context: async (request) => ({
-                    user: (request as any).user, // If using fastify-jwt
-                    db: fastify.db, // If you registered sequelize as a plugin
-                }),
+                context: async (request) => {
+                    const userId = (request as any).userId;
+                    return {
+                        user: userId ? { id: userId } : null,
+                        db: fastify.db,
+                    };
+                },
             }),
         });
     } catch (error) {

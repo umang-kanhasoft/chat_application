@@ -19,6 +19,9 @@ export enum SocketEventType {
     MARK_AS_READ = 'mark_as_read',
     MESSAGE_DELIVERED = 'message_delivered',
 
+    // Message Reactions
+    REACTION_ADDED = 'reaction_added',
+
     // Project Users
     GET_PROJECT_USERS = 'get_project_users',
     PROJECT_USERS = 'project_users',

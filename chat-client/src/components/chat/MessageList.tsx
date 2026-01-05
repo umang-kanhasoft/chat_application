@@ -16,12 +16,12 @@ interface MessageListProps {
     onLoadOlder: () => void;
     forceScrollToBottomToken?: number;
     initialTopMostItemIndex?:
-    | number
-    | {
-        index: number;
-        align: 'start' | 'end';
-    }
-    | null;
+        | number
+        | {
+              index: number;
+              align: 'start' | 'end';
+          }
+        | null;
     unreadAnchorMessageId?: string | null;
     onReaction?: (messageId: string, emoji: string) => void;
 }
@@ -189,14 +189,19 @@ export function MessageList({
 
                     const showDateSeparator =
                         !prevMessage ||
-                        !isSameDay(message.createdAt || message.timestamp, prevMessage.createdAt || prevMessage.timestamp);
+                        !isSameDay(
+                            message.createdAt || message.timestamp,
+                            prevMessage.createdAt || prevMessage.timestamp,
+                        );
 
                     return (
                         <div className="px-3 sm:px-4 py-1">
                             {showDateSeparator && (
                                 <div className="flex justify-center my-4 sticky top-2 z-10 pointer-events-none">
                                     <span className="bg-white/80 backdrop-blur-sm shadow-sm border border-black/5 px-3 py-1 rounded-lg text-xs font-medium text-gray-500 select-none">
-                                        {formatDateSeparator(message.createdAt || message.timestamp)}
+                                        {formatDateSeparator(
+                                            message.createdAt || message.timestamp,
+                                        )}
                                     </span>
                                 </div>
                             )}
@@ -217,6 +222,7 @@ export function MessageList({
                                 isSent={message.sender_id === currentUserId}
                                 onMediaLoad={scrollToBottomIfPinned}
                                 onReply={setReplyingToMessage}
+                                onReaction={onReaction}
                             />
                         </div>
                     );

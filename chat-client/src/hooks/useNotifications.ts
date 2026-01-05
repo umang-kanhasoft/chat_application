@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { requestForToken, onMessageListener } from '../services/firebase';
+import {
+    requestForToken,
+    subscribeToForegroundMessages,
+    registerFirebaseMessagingSW,
+} from '../services/firebase';
 import { useWebSocket } from './useWebSocket';
 
 export const useNotifications = () => {
@@ -7,14 +11,26 @@ export const useNotifications = () => {
     const [token, setToken] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchToken = async () => {
+        let cancelled = false;
+        const init = async () => {
+            await registerFirebaseMessagingSW();
             const currentToken = await requestForToken();
-            if (currentToken) {
+            if (!cancelled && currentToken) {
                 console.log('FCM Token retrieved');
                 setToken(currentToken);
             }
         };
-        fetchToken();
+        void init();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+            void Notification.requestPermission();
+        }
     }, []);
 
     useEffect(() => {
@@ -25,14 +41,35 @@ export const useNotifications = () => {
     }, [token, isConnected, registerDevice]);
 
     useEffect(() => {
-        void onMessageListener().then((payload) => {
-            console.log('Foreground message received:', payload);
-            // Optional: Helper to show toast if you have a toast system
-            // toast.info(payload?.notification?.body);
-        });
+        let unsub: (() => void) | null = null;
 
+        const setup = async () => {
+            unsub = await subscribeToForegroundMessages((payload) => {
+                console.log('Foreground message received:', payload);
+
+                // Firebase delivers a shape like { notification: { title, body }, data: {...} }
+                const p = payload as {
+                    notification?: { title?: string; body?: string; image?: string; icon?: string };
+                    data?: Record<string, string>;
+                };
+
+                const title = p.notification?.title || 'New message';
+                const body = p.notification?.body || '';
+
+                if (!('Notification' in window)) return;
+                if (Notification.permission === 'granted') {
+                    void new Notification(title, {
+                        body,
+                        icon: p.notification?.icon,
+                        data: p.data,
+                    });
+                }
+            });
+        };
+
+        void setup();
         return () => {
-            // Cleanup
+            if (unsub) unsub();
         };
     }, []);
 };

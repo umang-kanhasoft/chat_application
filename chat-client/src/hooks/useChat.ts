@@ -137,13 +137,15 @@ export function useChat() {
                     status: MessageStatus.PENDING,
                     attachments: attachments ? (attachments as Attachment[]) : undefined,
                     replyToId: replyTo?.id,
-                    replyTo: replyTo ? {
-                        id: replyTo.id,
-                        content: replyTo.content,
-                        sender: { name: 'You' } // Or look up name if possible, but 'You' or actual replyTo logic is better if we have the object.
-                        // Actually MessageInput passes the original message. So replyTo.sender.name is correct.
-                        // Wait, replyTo passed from MessageInput is the message being replied TO.
-                    } : null
+                    replyTo: replyTo
+                        ? {
+                            id: replyTo.id,
+                            content: replyTo.content,
+                            sender: { name: 'You' }, // Or look up name if possible, but 'You' or actual replyTo logic is better if we have the object.
+                            // Actually MessageInput passes the original message. So replyTo.sender.name is correct.
+                            // Wait, replyTo passed from MessageInput is the message being replied TO.
+                        }
+                        : null,
                 };
                 // Fix: Use the sender name from the replyTo object passed in
                 if (optimisticMessage.replyTo && replyTo) {
@@ -204,7 +206,7 @@ export function useChat() {
                     const hasReacted = reaction.userIds.includes(currentUserId);
 
                     if (hasReacted) {
-                        reaction.userIds = reaction.userIds.filter(id => id !== currentUserId);
+                        reaction.userIds = reaction.userIds.filter((id) => id !== currentUserId);
                         reaction.count--;
                         if (reaction.count === 0) {
                             reactions.splice(existingIdx, 1);
@@ -233,7 +235,12 @@ export function useChat() {
                 const mutation = `
                     mutation AddReaction($messageId: ID!, $emoji: String!) {
                         addReaction(messageId: $messageId, emoji: $emoji) {
-                            success
+                            id
+                            reactions {
+                                emoji
+                                count
+                                userIds
+                            }
                         }
                     }
                 `;
@@ -243,7 +250,7 @@ export function useChat() {
                 // TODO: Revert optimistic update?
             }
         },
-        [currentUserId]
+        [currentUserId],
     );
 
     const requestMessageHistory = useCallback(
@@ -366,21 +373,25 @@ export function useChat() {
             const msg = message.payload as Message | undefined;
             if (!msg) return;
 
+            if (
+                msg.receiver_id === currentUserId &&
+                msg.sender_id &&
+                msg.sender_id !== currentUserId &&
+                selectedUserId !== msg.sender_id
+            ) {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    try {
+                        const senderName = msg.sender?.name || 'New message';
+                        void new Notification(senderName, {
+                            body: msg.content || 'New message',
+                        });
+                    } catch {
+                        // ignore
+                    }
+                }
+            }
+
             // Only handle messages for current project
-            if ((msg.projectId ?? null) !== (selectedProjectId ?? null)) {
-                return;
-            }
-
-            // Always bump the conversation to the top for activity ordering.
-            const otherUserId =
-                msg.sender_id === currentUserId
-                    ? (msg.receiver_id as string | undefined)
-                    : msg.sender_id;
-            if (otherUserId) {
-                const ts = Date.parse((msg.createdAt || msg.timestamp) as string);
-                bumpLastMessageAt(otherUserId, Number.isFinite(ts) ? ts : Date.now());
-            }
-
             // Check if message belongs to the current open conversation
             const isFromSelectedUser = msg.sender_id === selectedUserId;
             const isToSelectedUser = msg.receiver_id === selectedUserId;
@@ -505,7 +516,7 @@ export function useChat() {
                 // Set last activity time for this conversation based on newest message.
                 if (selectedUserId && history.length > 0) {
                     const newest = history.reduce((acc, m) => {
-                        const t = Date.parse((m.createdAt || m.timestamp) as string);
+                        const t = Date.parse(m.createdAt || m.timestamp);
                         const tt = Number.isFinite(t) ? t : 0;
                         return tt > acc ? tt : acc;
                     }, 0);
@@ -584,12 +595,28 @@ export function useChat() {
             );
         });
 
+        // Reaction added handler
+        const unsubReactionAdded = wsService.on(SocketEventType.REACTION_ADDED, (message) => {
+            const payload = message.payload as {
+                messageId: string;
+                reactions: { emoji: string; count: number; userIds: string[] }[];
+                updatedBy: string;
+            };
+
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.id === payload.messageId ? { ...msg, reactions: payload.reactions } : msg,
+                ),
+            );
+        });
+
         // Cleanup
         return () => {
             unsubMessageReceived();
             unsubMessageHistory();
             unsubMessageRead();
             unsubMessageDelivered();
+            unsubReactionAdded();
         };
     }, [
         currentUserId,
@@ -646,6 +673,7 @@ export function useChat() {
     return {
         messages,
         sendMessage,
+        addReaction,
         updateUploadProgress,
         sendTypingIndicator,
         isLoadingHistory,

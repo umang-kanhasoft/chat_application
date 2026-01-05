@@ -2,7 +2,9 @@ import { io, Socket } from 'socket.io-client';
 import { config } from '../constants/config';
 import { ConnectionStatus, SocketEventType, type SocketMessage } from '../types/chat.types';
 
-type MessageHandler = (message: SocketMessage) => void;
+type MessageHandler<TType extends SocketEventType = SocketEventType> = (
+    message: SocketMessage<TType>,
+) => void;
 type ConnectionStatusHandler = (status: ConnectionStatus) => void;
 
 class SocketService {
@@ -12,6 +14,8 @@ class SocketService {
     private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
     private connectingPromise: Promise<void> | null = null;
     private authUserId: string | null = null;
+    private isAuthenticated = false;
+    private pendingMessages: SocketMessage[] = [];
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private isConnecting = false;
@@ -53,6 +57,7 @@ class SocketService {
         this.socket.on('connect', () => {
             this.reconnectAttempts = 0;
             this.isConnecting = false;
+            this.isAuthenticated = false;
             this.setConnectionStatus(ConnectionStatus.CONNECTED);
             this.connectingPromise = null;
 
@@ -69,6 +74,8 @@ class SocketService {
 
         this.socket.on('disconnect', (reason) => {
             this.isConnecting = false;
+            this.isAuthenticated = false;
+            this.pendingMessages = [];
             this.setConnectionStatus(ConnectionStatus.DISCONNECTED);
             this.connectingPromise = null;
 
@@ -210,26 +217,43 @@ class SocketService {
     /**
      * Send a message through Socket.io
      */
-    send(message: SocketMessage): boolean {
-        if (this.socket?.connected) {
+    send<TType extends SocketEventType>(message: SocketMessage<TType>): boolean {
+        // If not connected, we can't send.
+        if (!this.socket?.connected) {
+            return false;
+        }
+
+        // Always allow AUTH to go through.
+        if (message.type === SocketEventType.AUTH) {
             this.socket.emit('message', message);
             return true;
         }
-        return false;
+
+        // For any other message, wait until socket-level auth succeeds.
+        if (!this.isAuthenticated) {
+            this.pendingMessages.push(message);
+            return true;
+        }
+
+        this.socket.emit('message', message);
+        return true;
     }
 
     /**
      * Register a message handler for a specific event type
      */
-    on(type: SocketEventType, handler: MessageHandler): () => void {
+    on<TType extends SocketEventType>(type: TType, handler: MessageHandler<TType>): () => void {
         const handlers = this.messageHandlers.get(type) || [];
-        handlers.push(handler);
+        const wrappedHandler: MessageHandler = (message) => {
+            handler(message as SocketMessage<TType>);
+        };
+        handlers.push(wrappedHandler);
         this.messageHandlers.set(type, handlers);
 
         // Return unsubscribe function
         return () => {
             const currentHandlers = this.messageHandlers.get(type) || [];
-            const index = currentHandlers.indexOf(handler);
+            const index = currentHandlers.indexOf(wrappedHandler);
             if (index > -1) {
                 currentHandlers.splice(index, 1);
             }
@@ -280,6 +304,24 @@ class SocketService {
      * Handle incoming Socket.io message
      */
     private handleMessage(message: SocketMessage): void {
+        if (message.type === SocketEventType.AUTH_SUCCESS) {
+            this.isAuthenticated = true;
+            const toSend = this.pendingMessages;
+            this.pendingMessages = [];
+            toSend.forEach((m) => {
+                try {
+                    this.socket?.emit('message', m);
+                } catch {
+                    // ignore
+                }
+            });
+        }
+
+        if (message.type === SocketEventType.AUTH_FAILED) {
+            this.isAuthenticated = false;
+            this.pendingMessages = [];
+        }
+
         const handlers = this.messageHandlers.get(message.type) || [];
         handlers.forEach((handler) => {
             try {

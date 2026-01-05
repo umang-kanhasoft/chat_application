@@ -49,10 +49,10 @@ function App() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
     const [isManageSkillsOpen, setIsManageSkillsOpen] = useState(false);
-
-    useNotifications();
     const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
     const [isRestoringSession, setIsRestoringSession] = useState(false);
+
+    useNotifications();
 
     // Initialize auth on mount
     useEffect(() => {
