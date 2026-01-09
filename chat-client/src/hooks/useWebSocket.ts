@@ -175,7 +175,6 @@ export function useWebSocket() {
 
         // Global users handler
         const unsubGlobalUsers = wsService.on(SocketEventType.GLOBAL_USERS, (message) => {
-            // Only apply global list when no project is selected.
             if (selectedProjectIdRef.current) return;
             setProjectUsersRef.current(message.payload.users);
             message.payload.users.forEach((user: User) => {
@@ -188,12 +187,10 @@ export function useWebSocket() {
 
         // Project users handler
         const unsubProjectUsers = wsService.on(SocketEventType.PROJECT_USERS, (message) => {
-            // Only apply if this response matches the currently selected project.
             const responseProjectId = message.payload.projectId ?? null;
             const currentProjectId = selectedProjectIdRef.current ?? null;
             if (responseProjectId !== currentProjectId) return;
             setProjectUsersRef.current(message.payload.users);
-            // Initialize user statuses and unread counts
             message.payload.users.forEach((user: User) => {
                 setUserStatusRef.current(user.id, user.isOnline, user.lastSeen);
                 if (user.unreadCount !== undefined) {

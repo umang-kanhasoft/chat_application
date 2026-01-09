@@ -44,14 +44,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     setReplyingToMessage: (message) => set({ replyingToMessage: message }),
 
-    setSelectedProject: (projectId,
-        // state type check might fail on implicit any for projectId if not careful, but keeping original style
-    ) =>
+    setSelectedProject: (projectId) => {
         set({
             selectedProjectId: projectId,
             selectedUserId: null,
             selectedUser: null,
-        }),
+            projectUsers: [], // Clear users when switching projects
+        });
+    },
 
     setSelectedUser: (userId, user) =>
         set({

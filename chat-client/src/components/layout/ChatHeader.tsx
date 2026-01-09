@@ -1,9 +1,8 @@
-import { Avatar } from '../ui/Avatar';
+import { callService } from '../../services/call.service';
+import { useCallStore } from '../../store/callStore';
 import { useChatStore } from '../../store/chatStore';
 import { useConnectionStore } from '../../store/connectionStore';
 import { cn, formatLastSeen } from '../../utils/helpers';
-import { useCallStore } from '../../store/callStore';
-import { callService } from '../../services/call.service';
 
 export function ChatHeader() {
     const { selectedUser, isUserTyping, setSelectedUser } = useChatStore();
@@ -19,45 +18,38 @@ export function ChatHeader() {
     const canStartCall = online && callStatus === 'IDLE';
 
     return (
-        <div className="sticky top-0 z-20 px-4 md:px-6 pb-3.5 pt-[calc(env(safe-area-inset-top)+14px)] bg-white/90 backdrop-blur border-b border-black/10 flex items-center gap-2.5 shadow-sm">
+        <div className="shrink-0 sticky top-0 z-20 px-3 sm:px-4 py-3.5 bg-[#008069] text-white flex items-center gap-3">
             <button
                 type="button"
                 onClick={() => setSelectedUser(null, null)}
-                className="md:hidden -ml-1 w-10 h-10 rounded-full flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-colors"
+                className="-ml-1 w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 active:bg-white/20 transition-colors"
                 aria-label="Back"
                 title="Back"
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
+                    width="22"
+                    height="22"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 >
                     <path d="m15 18-6-6 6-6" />
                 </svg>
             </button>
-            <Avatar name={selectedUser.name} isOnline={online} size="md" />
-            <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-base">{selectedUser.name}</h3>
-                <div
-                    className={cn(
-                        'text-xs',
-                        typing
-                            ? 'text-primary italic'
-                            : online
-                              ? 'text-green-600'
-                              : 'text-gray-500',
-                    )}
-                >
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-semibold text-lg">
+                {selectedUser.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-white text-base truncate">{selectedUser.name}</h3>
+                <div className="text-xs text-white/90 truncate">
                     {typing
                         ? 'typing...'
                         : online
-                          ? 'Online'
+                          ? 'online'
                           : formatLastSeen(selectedUser.lastSeen)}
                 </div>
             </div>
@@ -67,11 +59,10 @@ export function ChatHeader() {
                 onClick={() => callService.startCall(selectedUser.id, selectedUser.name)}
                 disabled={!canStartCall}
                 className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
-                    'border border-gray-200 shadow-sm',
+                    'w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0',
                     canStartCall
-                        ? 'bg-white hover:bg-gray-50 text-gray-700'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+                        ? 'hover:bg-white/10 text-white'
+                        : 'text-white/40 cursor-not-allowed',
                 )}
                 title={
                     !online
@@ -84,8 +75,8 @@ export function ChatHeader() {
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -95,6 +86,28 @@ export function ChatHeader() {
                 >
                     <path d="m22 8-6 4 6 4V8Z" />
                     <rect x="2" y="6" width="14" height="12" rx="2" ry="2" />
+                </svg>
+            </button>
+
+            <button
+                type="button"
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
+                aria-label="More options"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="19" r="1" />
                 </svg>
             </button>
         </div>

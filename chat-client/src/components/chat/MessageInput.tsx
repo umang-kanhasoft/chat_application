@@ -45,6 +45,16 @@ export function MessageInput({
     const tempIdCounterRef = useRef(0);
 
     const { uploadFile } = useFileUpload();
+    const { replyingToMessage, setReplyingToMessage, projectUsers } = useChatStore();
+    const { currentUserId } = useAuthStore();
+
+    const getSenderName = (senderId: string) => {
+        if (senderId === currentUserId) return 'You';
+        const user = projectUsers.find((u) => u.id === senderId);
+        return user?.name || 'Unknown';
+    };
+
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const handleSend = async () => {
         if (!message.trim() && selectedFiles.length === 0) return;
@@ -159,7 +169,6 @@ export function MessageInput({
             return next;
         });
 
-        // Allow picking the same file again
         e.target.value = '';
     };
 
@@ -191,23 +200,12 @@ export function MessageInput({
         }
     };
 
-    const { replyingToMessage, setReplyingToMessage, projectUsers } = useChatStore();
-    const { currentUserId } = useAuthStore();
-
-    // Helper to get user name
-    const getSenderName = (senderId: string) => {
-        if (senderId === currentUserId) return 'You';
-        const user = projectUsers.find((u) => u.id === senderId);
-        return user?.name || 'Unknown';
-    };
-
     return (
-        <div className="px-3 sm:px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] bg-white/90 backdrop-blur border-t border-black/10">
-            {/* Reply Preview */}
+        <div className="shrink-0 sticky bottom-0 z-10 px-3 sm:px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)] bg-[#f0f2f5]">
             {replyingToMessage && (
-                <div className="flex items-center gap-3 p-2 mb-2 bg-gray-50 rounded-lg border-l-4 border-primary/60">
+                <div className="flex items-center gap-2 p-2 mb-2 bg-gray-50 rounded-lg border-l-4 border-primary">
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-primary/80 mb-0.5">
+                        <p className="text-xs font-semibold text-primary mb-0.5">
                             {getSenderName(replyingToMessage.sender_id)}
                         </p>
                         <p className="text-sm text-gray-600 truncate">
@@ -221,47 +219,59 @@ export function MessageInput({
                     {replyingToMessage.attachments?.find((a) =>
                         a.mime_type.startsWith('image/'),
                     ) && (
-                            <div className="w-10 h-10 rounded-md overflow-hidden">
-                                <img
-                                    src={
-                                        replyingToMessage.attachments
-                                            .find((a) => a.mime_type.startsWith('image/'))
-                                            ?.url.startsWith('http')
-                                            ? replyingToMessage.attachments.find((a) =>
-                                                a.mime_type.startsWith('image/'),
-                                            )?.url
-                                            : `${window.location.protocol}//${window.location.hostname}:4000${replyingToMessage.attachments.find((a) => a.mime_type.startsWith('image/'))?.url}`
-                                    }
-                                    alt="Reply preview"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        )}
+                        <div className="w-10 h-10 rounded overflow-hidden shrink-0">
+                            <img
+                                src={
+                                    replyingToMessage.attachments
+                                        .find((a) => a.mime_type.startsWith('image/'))
+                                        ?.url.startsWith('http')
+                                        ? replyingToMessage.attachments.find((a) =>
+                                              a.mime_type.startsWith('image/'),
+                                          )?.url
+                                        : `${window.location.protocol}//${window.location.hostname}:4000${replyingToMessage.attachments.find((a) => a.mime_type.startsWith('image/'))?.url}`
+                                }
+                                alt="Reply preview"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                    )}
                     <button
                         onClick={() => setReplyingToMessage(null)}
-                        className="p-1 hover:bg-black/5 rounded-full text-gray-400 hover:text-gray-600"
+                        className="p-1 hover:bg-gray-200 rounded-full text-gray-500 hover:text-gray-700 shrink-0"
+                        aria-label="Cancel reply"
                     >
-                        ✕
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
             )}
 
             {selectedFiles.length > 0 && (
-                <div className="mb-2">
-                    <div className="flex flex-wrap">
-                        {selectedFiles.map((sf) => (
-                            <FilePreview
-                                key={sf.id}
-                                file={sf.file}
-                                progress={sf.progress}
-                                onRemove={() => handleRemoveFile(sf.id)}
-                            />
-                        ))}
-                    </div>
+                <div className="mb-2 flex flex-wrap gap-2">
+                    {selectedFiles.map((sf) => (
+                        <FilePreview
+                            key={sf.id}
+                            file={sf.file}
+                            progress={sf.progress}
+                            onRemove={() => handleRemoveFile(sf.id)}
+                        />
+                    ))}
                 </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-end gap-2">
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -274,13 +284,14 @@ export function MessageInput({
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-black/5 active:bg-black/10 rounded-full transition-colors"
+                    className="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-full transition-colors shrink-0"
                     disabled={disabled || isUploadingBatch}
+                    aria-label="Attach file"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
+                        width="22"
+                        height="22"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -288,33 +299,48 @@ export function MessageInput({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                     >
-                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
                     </svg>
                 </button>
 
-                <input
-                    type="text"
-                    value={message}
-                    onChange={handleChange}
-                    onKeyDown={handleKeyPress}
-                    placeholder={
-                        selectedFiles.length > 0 ? 'Add a caption...' : 'Type a message...'
-                    }
-                    className="flex-1 px-4 py-2.5 border border-black/10 rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
-                    disabled={disabled || isUploadingBatch}
-                />
+                <div className="flex-1 flex items-center bg-white rounded-full px-4 py-2.5 shadow-sm">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={message}
+                        onChange={handleChange}
+                        onKeyDown={handleKeyPress}
+                        placeholder={
+                            selectedFiles.length > 0 ? 'Add a caption...' : 'Type a message'
+                        }
+                        className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-500 text-[15px]"
+                        disabled={disabled || isUploadingBatch}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="sentences"
+                    />
+                </div>
 
                 <Button
-                    onClick={handleSend}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        handleSend();
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onTouchStart={(e) => e.preventDefault()}
                     disabled={(!message.trim() && selectedFiles.length === 0) || isUploadingBatch}
                     isLoading={false}
-                    className="rounded-full w-11 h-11 p-0 shadow-sm"
-                    aria-label="Send"
+                    className="rounded-full w-11 h-11 p-0 shrink-0 bg-[#008069] hover:bg-[#017561]"
+                    aria-label="Send message"
+                    type="button"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"

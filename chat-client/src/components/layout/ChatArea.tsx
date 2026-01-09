@@ -33,28 +33,30 @@ export function ChatArea() {
     }
 
     return (
-        <div className="flex-1 flex flex-col chat-wallpaper min-h-0">
+        <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
             <ChatHeader />
-            <MessageList
-                key={selectedUserId}
-                messages={messages}
-                isLoading={isLoadingHistory}
-                isLoadingMore={isLoadingMoreHistory}
-                hasMore={hasMoreHistory}
-                firstItemIndex={firstItemIndex}
-                onLoadOlder={loadOlderMessages}
-                forceScrollToBottomToken={forceScrollToBottomToken}
-                initialTopMostItemIndex={initialTopMostItemIndex}
-                unreadAnchorMessageId={unreadAnchorMessageId}
-                onReaction={addReaction}
-            />
-            <TypingIndicator />
-            <MessageInput
-                onSendMessage={sendMessage}
-                onUploadProgress={updateUploadProgress}
-                onTyping={sendTypingIndicator}
-                disabled={!selectedUserId}
-            />
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <MessageList
+                    key={selectedUserId}
+                    messages={messages}
+                    isLoading={isLoadingHistory}
+                    isLoadingMore={isLoadingMoreHistory}
+                    hasMore={hasMoreHistory}
+                    firstItemIndex={firstItemIndex}
+                    onLoadOlder={loadOlderMessages}
+                    forceScrollToBottomToken={forceScrollToBottomToken}
+                    initialTopMostItemIndex={initialTopMostItemIndex}
+                    unreadAnchorMessageId={unreadAnchorMessageId}
+                    onReaction={addReaction}
+                />
+                <TypingIndicator />
+                <MessageInput
+                    onSendMessage={sendMessage}
+                    onUploadProgress={updateUploadProgress}
+                    onTyping={sendTypingIndicator}
+                    disabled={!selectedUserId}
+                />
+            </div>
         </div>
     );
 }

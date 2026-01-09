@@ -50,13 +50,58 @@ class CallService {
         if (this.transceiversConfigured) return;
 
         try {
-            this.audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
-            this.videoTransceiver = pc.addTransceiver('video', { direction: 'sendrecv' });
+            const existing = pc.getTransceivers();
+            this.audioTransceiver =
+                existing.find((t) => t.receiver?.track?.kind === 'audio') ||
+                existing.find((t) => t.sender?.track?.kind === 'audio') ||
+                null;
+            this.videoTransceiver =
+                existing.find((t) => t.receiver?.track?.kind === 'video') ||
+                existing.find((t) => t.sender?.track?.kind === 'video') ||
+                null;
+
+            if (!this.audioTransceiver) {
+                this.audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+            }
+            if (!this.videoTransceiver) {
+                this.videoTransceiver = pc.addTransceiver('video', { direction: 'sendrecv' });
+            }
         } catch {
             // ignore
         }
 
         this.transceiversConfigured = true;
+    }
+
+    private async applySenderQuality(sender: RTCRtpSender) {
+        try {
+            const track = sender.track;
+            if (!track) return;
+
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+            }
+
+            if (track.kind === 'video') {
+                params.encodings[0] = {
+                    ...params.encodings[0],
+                    maxBitrate: 4_000_000,
+                    maxFramerate: 60,
+                };
+            }
+
+            if (track.kind === 'audio') {
+                params.encodings[0] = {
+                    ...params.encodings[0],
+                    maxBitrate: 128_000,
+                };
+            }
+
+            await sender.setParameters(params);
+        } catch {
+            // ignore
+        }
     }
 
     private async maybeUpgradeToVideo() {
@@ -73,7 +118,11 @@ class CallService {
 
         try {
             const videoStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: {
+                    width: { ideal: 1920, max: 1920 },
+                    height: { ideal: 1080, max: 1080 },
+                    frameRate: { ideal: 30, max: 60 },
+                },
                 audio: false,
             });
             const track = videoStream.getVideoTracks()[0];
@@ -89,9 +138,13 @@ class CallService {
 
             if (this.videoTransceiver) {
                 await this.videoTransceiver.sender.replaceTrack(track);
+                await this.applySenderQuality(this.videoTransceiver.sender);
             } else {
                 const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-                if (sender) await sender.replaceTrack(track);
+                if (sender) {
+                    await sender.replaceTrack(track);
+                    await this.applySenderQuality(sender);
+                }
             }
         } catch (error) {
             console.error('[MEDIA] Video upgrade failed', error);
@@ -124,8 +177,8 @@ class CallService {
         };
 
         pc.ontrack = (event) => {
-            event.track.onmute = () => { };
-            event.track.onunmute = () => { };
+            event.track.onmute = () => {};
+            event.track.onunmute = () => {};
 
             // Handle track ended unexpectedly (e.g., remote muted/unplugged)
             event.track.onended = () => {
@@ -287,8 +340,16 @@ class CallService {
         this.localStreamPromise = (async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true,
+                    video: {
+                        width: { ideal: 1920, max: 1920 },
+                        height: { ideal: 1080, max: 1080 },
+                        frameRate: { ideal: 30, max: 60 },
+                    },
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
                 });
                 state.setLocalStream(stream);
                 state.setMicMuted(false);
@@ -300,8 +361,16 @@ class CallService {
                     await new Promise((r) => setTimeout(r, 2000));
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
-                            video: true,
-                            audio: true,
+                            video: {
+                                width: { ideal: 1920, max: 1920 },
+                                height: { ideal: 1080, max: 1080 },
+                                frameRate: { ideal: 30, max: 60 },
+                            },
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true,
+                            },
                         });
                         state.setLocalStream(stream);
                         state.setMicMuted(false);
@@ -315,7 +384,11 @@ class CallService {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
                             video: false,
-                            audio: true,
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true,
+                            },
                         });
                         state.setLocalStream(stream);
                         state.setMicMuted(false);
@@ -365,6 +438,9 @@ class CallService {
         if (ops.length > 0) {
             await Promise.allSettled(ops);
         }
+
+        const senders = pc.getSenders().filter((s) => Boolean(s.track));
+        await Promise.allSettled(senders.map((s) => this.applySenderQuality(s)));
     }
 
     private async flushPendingIce() {
@@ -593,7 +669,11 @@ class CallService {
         void (async () => {
             try {
                 const videoStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
+                    video: {
+                        width: { ideal: 1920, max: 1920 },
+                        height: { ideal: 1080, max: 1080 },
+                        frameRate: { ideal: 30, max: 60 },
+                    },
                     audio: false,
                 });
                 const track = videoStream.getVideoTracks()[0];
@@ -608,6 +688,7 @@ class CallService {
 
                 if (this.videoTransceiver) {
                     await this.videoTransceiver.sender.replaceTrack(track);
+                    await this.applySenderQuality(this.videoTransceiver.sender);
                 } else {
                     const sender = pc
                         .getSenders()
@@ -618,6 +699,7 @@ class CallService {
                         );
                     if (sender) {
                         await sender.replaceTrack(track);
+                        await this.applySenderQuality(sender);
                     }
                 }
 
@@ -701,9 +783,9 @@ class CallService {
         if (!state.callId || state.callId !== payload.callId) return;
 
         const pc = this.ensurePeerConnection();
-        await this.addLocalTracksToPeerConnection(pc);
-
         await pc.setRemoteDescription(payload.sdp);
+
+        await this.addLocalTracksToPeerConnection(pc);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);

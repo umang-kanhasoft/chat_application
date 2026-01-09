@@ -1,22 +1,15 @@
 import { useMemo } from 'react';
 import { useChatStore } from '../../store/chatStore';
-import { UserCard } from './UserCard';
 import { EmptyState } from '../ui/EmptyState';
+import { UserCard } from './UserCard';
 
 interface UserListProps {
     onSelectUser: (userId: string) => void;
 }
 
 export function UserList({ onSelectUser }: UserListProps) {
-    const {
-        projectUsers,
-        selectedUserId,
-        selectedProjectId,
-        getUnreadCount,
-        getLastMessageAt,
-        lastMessageAt,
-        unreadCounts,
-    } = useChatStore();
+    const { projectUsers, selectedUserId, selectedProjectId, getUnreadCount, getLastMessageAt } =
+        useChatStore();
 
     const sortedUsers = useMemo(() => {
         const users = [...projectUsers];
@@ -39,7 +32,7 @@ export function UserList({ onSelectUser }: UserListProps) {
             return a.name.localeCompare(b.name);
         });
         return users;
-    }, [projectUsers, lastMessageAt, unreadCounts, getUnreadCount, getLastMessageAt]);
+    }, [projectUsers, getUnreadCount, getLastMessageAt]);
 
     if (projectUsers.length === 0) {
         return (
